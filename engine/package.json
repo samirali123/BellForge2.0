@@ -1,0 +1,8 @@
+{
+  "name": "bellforge-engine",
+  "version": "2.0.0",
+  "description": "Direct-request engine for creating, reading and deleting bells on a CyberData calendar",
+  "dependencies": {},
+  "license": "UNLICENSED",
+  "private": true
+}

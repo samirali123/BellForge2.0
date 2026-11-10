@@ -1,0 +1,62 @@
+name: Build installers
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+        working-directory: app
+      - run: npm run dist:mac
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bellforge-mac
+          path: |
+            app/dist/*.dmg
+            app/dist/*.zip
+
+  build-win:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+        working-directory: app
+      - run: npm run dist:win
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bellforge-windows
+          path: app/dist/*.exe
+
+  # Only runs when triggered by a version tag push, not a plain manual
+  # dispatch, so ad-hoc test builds never end up on the public Releases
+  # page. Creates a draft release with the installers attached so
+  # nothing goes out to clients until it's reviewed and published by hand.
+  release:
+    needs: [build-mac, build-win]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: artifacts/**/*

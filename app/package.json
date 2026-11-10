@@ -1,0 +1,61 @@
+{
+  "name": "bellforge-app",
+  "productName": "BellForge",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Desktop launcher for the CyberData bell schedule automation",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "postinstall": "node ../tools/brand-dev-electron.js",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "allowScripts": {
+    "electron@33.4.11": true
+  },
+  "build": {
+    "appId": "com.bellforge.app",
+    "productName": "BellForge",
+    "afterPack": "../tools/adhoc-sign.js",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": ["**/*", "!dist/**", "!build/**"],
+    "extraResources": [
+      {
+        "from": "../engine",
+        "to": "engine",
+        "filter": ["**/*", "!PROJECT_SPEC.md", "!README.md"]
+      },
+      {
+        "from": "../schools",
+        "to": "schools"
+      }
+    ],
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.education",
+      "icon": "build/icon-mac.png",
+      "artifactName": "bellforgezip-v${version}.${ext}"
+    },
+    "dmg": {
+      "artifactName": "bellforge-v${version}-mac.${ext}"
+    },
+    "win": {
+      "target": ["nsis"],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "artifactName": "bellforge-v${version}-windows.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

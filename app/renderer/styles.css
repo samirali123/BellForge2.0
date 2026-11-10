@@ -1,0 +1,1220 @@
+:root {
+  color-scheme: light dark;
+
+  /* Spacing scale. Every padding, margin and gap uses one of these. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --bg: #f4f4f6;
+  --card-bg: #ffffff;
+  --text: #1a1a1e;
+  --muted: #64646d;
+  --border: #e2e2e7;
+  --accent: #7a1f2b;
+  --danger: #c0392b;
+  --danger-bg: #fdecea;
+  --ok: #17703d;
+  --ok-bg: rgba(31, 138, 76, 0.12);
+  --warn: #7a5000;
+  --warn-bg: rgba(212, 167, 44, 0.18);
+
+  /* Text-colored links (Back, Get CSV template). Separate from --accent,
+     which is a button fill: the dark-mode accent is too dark to read as
+     text on the dark background. */
+  --link: var(--accent);
+
+  /* Surface treatment. One gradient direction and palette for every
+     primary action; one glass recipe for the main panel. White text is
+     checked against the lightest stop of each gradient (AA), and text on
+     the glass is checked where the backdrop is most saturated. */
+  --gradient-primary: linear-gradient(135deg, #7a1f2b 0%, #a8343f 100%);
+  --gradient-primary-hover: linear-gradient(135deg, #641822 0%, #922c36 100%);
+  --gradient-danger: linear-gradient(135deg, #c0392b 0%, #a52f23 100%);
+  --gradient-danger-hover: linear-gradient(135deg, #a52f23 0%, #8e271d 100%);
+  --glow-primary: 0 4px 14px rgba(122, 31, 43, 0.28);
+  --glow-primary-hover: 0 6px 20px rgba(122, 31, 43, 0.38);
+  --glow-danger: 0 4px 14px rgba(192, 57, 43, 0.3);
+  --glow-card: 0 0 0 3px rgba(122, 31, 43, 0.12);
+
+  --backdrop:
+    radial-gradient(circle at 12% 8%, rgba(122, 31, 43, 0.22), transparent 42%),
+    radial-gradient(circle at 88% 92%, rgba(212, 167, 44, 0.24), transparent 48%),
+    var(--bg);
+  --glass-bg: rgba(255, 255, 255, 0.68);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --glass-shadow: 0 8px 32px rgba(40, 20, 30, 0.1);
+  --glass-blur: blur(24px) saturate(160%);
+  --radius-card: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17171b;
+    --card-bg: #1f1f24;
+    --text: #eceef0;
+    --muted: #97979f;
+    --border: #303038;
+    --accent: #b0333f;
+    --danger: #e57368;
+    --danger-bg: #3a1f1d;
+    --ok: #4ecb84;
+    --link: #e0707a;
+    --warn: #e8c35a;
+    --warn-bg: rgba(212, 167, 44, 0.14);
+
+    --gradient-primary: linear-gradient(135deg, #a12d39 0%, #c4404b 100%);
+    --gradient-primary-hover: linear-gradient(135deg, #8f2632 0%, #b03a44 100%);
+    --glow-primary: 0 4px 16px rgba(196, 64, 75, 0.32);
+    --glow-primary-hover: 0 6px 22px rgba(196, 64, 75, 0.45);
+    --glow-danger: 0 4px 16px rgba(192, 57, 43, 0.35);
+    --glow-card: 0 0 0 3px rgba(224, 112, 122, 0.16);
+
+    --backdrop:
+      radial-gradient(circle at 12% 8%, rgba(176, 51, 63, 0.24), transparent 42%),
+      radial-gradient(circle at 88% 92%, rgba(212, 167, 44, 0.16), transparent 48%),
+      var(--bg);
+    --glass-bg: rgba(30, 30, 36, 0.62);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Elements with their own display (flex/grid) would otherwise ignore the
+   hidden attribute and show up as empty boxes. */
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--backdrop);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.card {
+  width: 100%;
+  max-width: 416px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+header {
+  margin-bottom: var(--space-1);
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  margin: var(--space-1) 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+select,
+input {
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: var(--space-3);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+select:focus,
+input:focus {
+  border-color: var(--accent);
+}
+
+.network-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+
+.network-status.checking .dot {
+  background: #d4a72c;
+}
+
+.network-status.ok .dot {
+  background: var(--ok);
+}
+
+.network-status.ok .network-text {
+  color: var(--ok);
+}
+
+.network-status.fail .dot {
+  background: var(--danger);
+}
+
+.network-status.fail .network-text {
+  color: var(--danger);
+}
+
+/* Plain <button> is the primary action. Variants (.secondary, .link-btn,
+   .back-link, .mode-btn, row actions) override background and shadow.
+   The hover/disabled rules use :where() so they carry no more weight than
+   a bare element selector; otherwise they'd beat every variant's own
+   hover (that was turning hovered mode cards solid maroon). */
+button {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--gradient-primary);
+  border: none;
+  border-radius: 8px;
+  padding: var(--space-3);
+  cursor: pointer;
+  box-shadow: var(--glow-primary);
+  transition: box-shadow 0.15s ease;
+  margin-top: var(--space-1);
+}
+
+button:where(:hover:not(:disabled)) {
+  background: var(--gradient-primary-hover);
+  box-shadow: var(--glow-primary-hover);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+  box-shadow: none;
+}
+
+.error {
+  font-size: 13px;
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-radius: 8px;
+  padding: var(--space-3);
+  line-height: 1.4;
+}
+
+.log {
+  font-size: 12px;
+  font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  color: var(--muted);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: var(--space-3);
+  max-height: 160px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.log .line.success {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.log .line.fail {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.log .line.heading {
+  color: var(--text);
+  font-weight: 700;
+  margin-top: var(--space-1);
+}
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.screen[hidden] {
+  display: none;
+}
+
+.section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 0;
+}
+
+.back-link {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--link);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.back-link:hover {
+  background: none;
+  text-decoration: underline;
+}
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  background: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: var(--space-4);
+  text-align: left;
+  cursor: pointer;
+  margin: 0;
+  box-shadow: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mode-btn:hover {
+  background: var(--card-bg);
+  border-color: var(--link);
+  box-shadow: var(--glow-card);
+}
+
+.mode-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mode-desc {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.range-dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.range-table-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.range-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  max-height: 320px;
+  display: block;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.range-table tbody {
+  display: block;
+}
+
+.range-table tr {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.range-table tr:last-child {
+  border-bottom: none;
+}
+
+.range-table td.range-date {
+  flex: 0 0 96px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.range-table td.range-select {
+  flex: 1;
+}
+
+.range-table select {
+  width: 100%;
+  padding: var(--space-2);
+  font-size: 12px;
+}
+
+.review-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: var(--space-3);
+  font-size: 13px;
+}
+
+.review-item {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.review-item .review-schedule {
+  color: var(--muted);
+  text-align: right;
+}
+
+.review-total {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.progress-log {
+  max-height: 320px;
+}
+
+.progress-summary {
+  font-size: 14px;
+  font-weight: 600;
+  padding: var(--space-3);
+  border-radius: 8px;
+}
+
+.progress-summary.success {
+  color: var(--ok);
+  background: var(--ok-bg);
+}
+
+.progress-summary.fail {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.mode-btn.wide {
+  grid-column: 1 / -1;
+}
+
+.notice {
+  font-size: 13px;
+  color: var(--ok);
+  background: var(--ok-bg);
+  border-radius: 8px;
+  padding: var(--space-3);
+  line-height: 1.4;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin: calc(-1 * var(--space-2)) 0 0;
+  line-height: 1.4;
+}
+
+.builder-blocks {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.builder-blocks .empty {
+  color: var(--muted);
+  padding: var(--space-3);
+  margin: 0;
+}
+
+.block-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.block-item:last-child {
+  border-bottom: none;
+}
+
+.block-item .block-time {
+  flex: 0 0 92px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.block-item .block-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.block-item .block-remove {
+  background: none;
+  box-shadow: none;
+  color: var(--danger);
+  font-size: 12px;
+  padding: var(--space-1);
+  margin: 0;
+}
+
+.block-item .block-remove:hover {
+  background: none;
+  text-decoration: underline;
+}
+
+.builder-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: var(--space-3);
+}
+
+.builder-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.builder-row .field {
+  min-width: 0;
+}
+
+input.invalid,
+select.invalid {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger);
+}
+
+input:disabled {
+  opacity: 0.45;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.checkbox input {
+  padding: 0;
+  margin: 0;
+}
+
+.field-errors {
+  font-size: 12px;
+  color: var(--danger);
+  line-height: 1.4;
+}
+
+.field-errors:empty {
+  display: none;
+}
+
+.review-item.auto {
+  color: var(--muted);
+}
+
+#builder-error,
+#preview-error,
+#mode-warnings {
+  white-space: pre-line;
+}
+
+.import-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+button.secondary {
+  background: var(--card-bg);
+  box-shadow: none;
+  color: var(--text);
+  border: 1px solid var(--border);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: 13px;
+}
+
+button.secondary:hover:not(:disabled) {
+  background: var(--card-bg);
+  border-color: var(--link);
+  box-shadow: none;
+}
+
+button.link-btn {
+  background: none;
+  box-shadow: none;
+  color: var(--link);
+  font-size: 13px;
+  padding: 0;
+  margin: 0;
+}
+
+button.link-btn:hover:not(:disabled) {
+  background: none;
+  box-shadow: none;
+  text-decoration: underline;
+}
+
+.block-item.confirming {
+  background: var(--danger-bg);
+}
+
+.block-item .block-confirm {
+  background: var(--gradient-danger);
+  box-shadow: var(--glow-danger);
+  font-size: 12px;
+  padding: var(--space-1) var(--space-2);
+  margin: 0;
+}
+
+.block-item .block-confirm:hover:not(:disabled) {
+  background: var(--gradient-danger-hover);
+}
+
+.block-item .block-cancel {
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 12px;
+  padding: var(--space-1);
+  margin: 0;
+}
+
+.block-item .block-cancel:hover {
+  background: none;
+  text-decoration: underline;
+}
+
+/* --- header: theme switch + step indicator ------------------------------ */
+
+.header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+/* Three-way choice (not an on/off toggle): System, Light, Dark. */
+.segmented {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  flex-shrink: 0;
+}
+
+.segmented button {
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: var(--space-1) var(--space-2);
+  border-radius: 6px;
+  margin: 0;
+}
+
+.segmented button:hover:not(:disabled) {
+  background: none;
+  box-shadow: none;
+  color: var(--text);
+}
+
+.segmented button[aria-checked="true"],
+.segmented button[aria-checked="true"]:hover:not(:disabled) {
+  background: var(--gradient-primary);
+  color: #fff;
+}
+
+.steps {
+  display: flex;
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  gap: var(--space-2);
+}
+
+.steps:empty {
+  display: none;
+}
+
+.steps li {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.steps li::before {
+  content: "";
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.steps li.done::before {
+  background: color-mix(in srgb, var(--link) 45%, transparent);
+}
+
+.steps li.current {
+  color: var(--text);
+}
+
+.steps li.current::before {
+  background: var(--gradient-primary);
+  box-shadow: var(--glow-primary);
+}
+
+/* --- progress meter --------------------------------------------------- */
+
+.meter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.meter-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.meter-head #progress-pct {
+  color: var(--text);
+}
+
+.meter-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.meter-fill {
+  width: 0;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--gradient-primary);
+  box-shadow: var(--glow-primary);
+  transition: width 0.2s ease;
+}
+
+.meter.fail #progress-count {
+  color: var(--danger);
+}
+
+.meter.fail .meter-fill {
+  background: var(--gradient-danger);
+  box-shadow: var(--glow-danger);
+}
+
+.meter.done .meter-fill {
+  background: var(--ok);
+  box-shadow: none;
+}
+
+/* --- brand ---------------------------------------------------------------- */
+
+.brand {
+  line-height: 0;
+}
+
+/* Lockup images carry their own height in the artwork, so size by height
+   and let the width follow (about 4:1). */
+.brand-logo {
+  height: 32px;
+  width: auto;
+  display: block;
+}
+
+/* --- calendar --------------------------------------------------------------- */
+
+/* The month grid needs more width than the other screens. */
+.card:has(#screen-calendar:not([hidden])) {
+  max-width: 720px;
+}
+
+.cal-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cal-title {
+  margin: 0;
+  min-width: 152px;
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+}
+
+button.cal-nav {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.cal-tools {
+  display: flex;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+.cal-status {
+  margin: 0;
+}
+
+.cal-weekdays,
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.cal-weekdays {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+}
+
+button.cal-day {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 64px;
+  margin: 0;
+  padding: var(--space-2);
+  background: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: none;
+  font-weight: 500;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+button.cal-day:hover:not(:disabled) {
+  background: var(--card-bg);
+  border-color: var(--link);
+  box-shadow: var(--glow-card);
+}
+
+button.cal-day.selected {
+  border-color: var(--link);
+  box-shadow: var(--glow-card);
+}
+
+button.cal-day.out {
+  background: transparent;
+}
+
+.cal-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+
+.cal-num {
+  min-width: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  border-radius: 10px;
+}
+
+.cal-day.weekend .cal-num {
+  color: var(--muted);
+}
+
+.cal-day.today .cal-num {
+  color: #fff;
+  background: var(--gradient-primary);
+  box-shadow: var(--glow-primary);
+}
+
+.cal-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* One tick per bell, placed by time: days with the same schedule look the
+   same, and one that differs stands out. */
+.mini-strip {
+  position: relative;
+  /* Only holds absolutely positioned marks, so it has no content width of
+     its own; stretch it across the cell or it collapses to 0. */
+  align-self: stretch;
+  height: 12px;
+  margin-top: auto;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--border) 60%, transparent);
+  overflow: hidden;
+}
+
+.mini-strip .mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+}
+
+/* --- day panel --------------------------------------------------------------- */
+
+.day-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.day-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.day-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.day-count {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.day-strip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.strip-track {
+  position: relative;
+  height: 32px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--border) 50%, transparent);
+}
+
+.strip-track .mark {
+  position: absolute;
+  top: var(--space-1);
+  bottom: var(--space-1);
+  width: 4px;
+  margin-left: -2px;
+  border-radius: 2px;
+}
+
+.strip-track .mark.selected {
+  top: 0;
+  bottom: 0;
+  outline: 2px solid var(--danger);
+  outline-offset: 1px;
+}
+
+.strip-track .now {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--link);
+}
+
+.strip-axis {
+  position: relative;
+  height: 14px;
+  font-size: 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.strip-axis span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.strip-axis span:first-child {
+  transform: none;
+}
+
+.strip-axis span:last-child {
+  transform: translateX(-100%);
+}
+
+.bell-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.bell-list .empty {
+  margin: 0;
+  padding: var(--space-3);
+  color: var(--muted);
+}
+
+.bell-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.bell-row:last-child {
+  border-bottom: none;
+}
+
+.bell-row.selected {
+  background: var(--danger-bg);
+}
+
+.bell-row.locked {
+  color: var(--muted);
+  cursor: default;
+}
+
+.bell-row input {
+  margin: 0;
+  padding: 0;
+}
+
+.bell-time {
+  flex: 0 0 44px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.bell-swatch {
+  flex: 0 0 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.bell-title {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bell-details {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bell-tag {
+  padding: 0 var(--space-1);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.bell-tag.upcoming {
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+
+.day-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.day-actions .danger-btn {
+  margin-left: auto;
+}
+
+button.danger-btn {
+  margin: 0;
+  background: var(--gradient-danger);
+  box-shadow: var(--glow-danger);
+}
+
+button.danger-btn:hover:not(:disabled) {
+  background: var(--gradient-danger-hover);
+  box-shadow: var(--glow-danger);
+}
+
+.confirm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: 8px;
+  background: var(--danger-bg);
+}
+
+.confirm-text {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.confirm-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  max-height: 96px;
+  overflow-y: auto;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.warning {
+  padding: var(--space-3);
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+
+.confirm-panel .checkbox {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.confirm-actions button {
+  margin: 0;
+}
+
+.meter-pct {
+  color: var(--text);
+}
+
+.meter.fail .meter-count {
+  color: var(--danger);
+}
+
+.meter-hint {
+  margin: 0;
+}
+
+/* Dark bells (e.g. near-black M0/G0) would vanish on the dark strips; a
+   faint ring keeps every bell visible without changing its color. */
+@media (prefers-color-scheme: dark) {
+  .mini-strip .mark,
+  .strip-track .mark {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.28);
+  }
+}
