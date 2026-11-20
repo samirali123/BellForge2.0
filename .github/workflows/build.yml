@@ -9,8 +9,29 @@ on:
 permissions:
   contents: write
 
+env:
+  GH_TOKEN: ${{ github.token }}
+
 jobs:
+  # A version tag gets a DRAFT release first; both builds then attach their
+  # installers to it. Nothing reaches clients until the draft is reviewed and
+  # published by hand. Installers go straight onto the release rather than
+  # through Actions artifacts: this repo is private, and artifact storage is
+  # capped for private repos (it filled up and failed the first 2.0 build).
+  create-release:
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft \
+              --title "$GITHUB_REF_NAME" --notes "Installers for $GITHUB_REF_NAME."
+
   build-mac:
+    needs: create-release
+    # Still builds on a manual run (create-release is skipped then); only
+    # the upload step needs a tag.
+    if: ${{ !failure() && !cancelled() }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,14 +42,12 @@ jobs:
         working-directory: app
       - run: npm run dist:mac
         working-directory: app
-      - uses: actions/upload-artifact@v4
-        with:
-          name: bellforge-mac
-          path: |
-            app/dist/*.dmg
-            app/dist/*.zip
+      - if: startsWith(github.ref, 'refs/tags/')
+        run: gh release upload "$GITHUB_REF_NAME" app/dist/*.dmg app/dist/*.zip --repo "$GITHUB_REPOSITORY" --clobber
 
   build-win:
+    needs: create-release
+    if: ${{ !failure() && !cancelled() }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,24 +58,6 @@ jobs:
         working-directory: app
       - run: npm run dist:win
         working-directory: app
-      - uses: actions/upload-artifact@v4
-        with:
-          name: bellforge-windows
-          path: app/dist/*.exe
-
-  # Only runs when triggered by a version tag push, not a plain manual
-  # dispatch, so ad-hoc test builds never end up on the public Releases
-  # page. Creates a draft release with the installers attached so
-  # nothing goes out to clients until it's reviewed and published by hand.
-  release:
-    needs: [build-mac, build-win]
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-      - uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          files: artifacts/**/*
+      - if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: gh release upload "$GITHUB_REF_NAME" app/dist/*.exe --repo "$GITHUB_REPOSITORY" --clobber
