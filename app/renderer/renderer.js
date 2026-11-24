@@ -11,41 +11,80 @@ const subtitle = document.getElementById("subtitle");
 // --- state ---------------------------------------------------------------
 
 let selectedSchoolId = null;
+let schools = []; // [{ id, name, accent, accentDark }] from list-schools
 let unsubscribeStatus = null;
 let scheduleMenu = null; // { schoolName, items: [{key, label, eventCount}], colors, warnings }
 let pendingAssignments = [];
-let reviewOrigin = "screen-mode";
+let reviewOrigin = "screen-single";
 
-// --- screen switching ------------------------------------------------------
+// --- views -------------------------------------------------------------------
+// Three layers: the login card (before connecting), the calendar (home, once
+// connected), and a panel over the calendar for adding bells and managing
+// schedule types. showScreen() takes any screen id and shows the right one:
+// "screen-calendar" closes the panel.
+
+const connectView = document.getElementById("connect-view");
+const appView = document.getElementById("app-view");
+const sheet = document.getElementById("sheet");
+const sheetTitle = document.getElementById("sheet-title");
+const sheetClose = document.getElementById("sheet-close");
+
+const SHEET_TITLES = {
+  "screen-single": "Apply a schedule",
+  "screen-range": "Date range",
+  "screen-builder": "New schedule type",
+  "screen-builder-preview": "New schedule type",
+  "screen-my-schedules": "My schedules",
+  "screen-review": "Review",
+};
 
 function showScreen(id) {
-  document.querySelectorAll(".screen").forEach((s) => {
+  if (id === "screen-connect") {
+    closeSheet();
+    appView.hidden = true;
+    connectView.hidden = false;
+    document.body.classList.remove("app-mode");
+    return;
+  }
+  if (id === "screen-calendar") {
+    closeSheet();
+    return;
+  }
+  closeAddMenu();
+  const wasOpen = !sheet.hidden;
+  sheet.hidden = false;
+  sheet.querySelectorAll(".screen").forEach((s) => {
     s.hidden = s.id !== id;
   });
+  sheetTitle.textContent = SHEET_TITLES[id] || "";
   renderSteps(id);
+  sheet.querySelector(".sheet-panel").scrollTop = 0;
+  if (!wasOpen) sheetClose.focus();
 }
 
+function closeSheet() {
+  if (sheet.hidden) return;
+  sheet.hidden = true;
+  jobView = null;
+  document.getElementById("add-btn").focus();
+}
+
+sheetClose.addEventListener("click", closeSheet);
+
 // --- step indicator ----------------------------------------------------------
-// Each screen belongs to one flow; the bar shows that flow's steps with
-// the current one highlighted. Only real flows, nothing decorative.
+// Multi-step flows in the panel show their steps, the current one
+// highlighted. Single-step screens show none.
 
 const FLOWS = {
-  create: ["Connect", "Choose", "Dates", "Review", "Create"],
-  build: ["Connect", "Choose", "Build", "Preview"],
-  manage: ["Connect", "Choose", "My schedules"],
-  calendar: ["Connect", "Choose", "Calendar"],
+  create: ["Dates", "Review"],
+  build: ["Build", "Preview"],
 };
 const SCREEN_STEPS = {
-  "screen-connect": ["create", 0],
-  "screen-mode": ["create", 1],
-  "screen-single": ["create", 2],
-  "screen-range": ["create", 2],
-  "screen-review": ["create", 3],
-  "screen-progress": ["create", 4],
-  "screen-builder": ["build", 2],
-  "screen-builder-preview": ["build", 3],
-  "screen-my-schedules": ["manage", 2],
-  "screen-calendar": ["calendar", 2],
+  "screen-single": ["create", 0],
+  "screen-range": ["create", 0],
+  "screen-review": ["create", 1],
+  "screen-builder": ["build", 0],
+  "screen-builder-preview": ["build", 1],
 };
 
 function renderSteps(screenId) {
@@ -68,7 +107,8 @@ function renderSteps(screenId) {
 
 // --- theme switch ------------------------------------------------------------
 
-const themeButtons = document.querySelectorAll("#theme-switch button");
+// There's a switch on the login card and another in the calendar's top bar.
+const themeButtons = document.querySelectorAll(".theme-switch button");
 
 function markTheme(theme) {
   themeButtons.forEach((b) => b.setAttribute("aria-checked", String(b.dataset.theme === theme)));
@@ -116,7 +156,7 @@ function setNetworkStatus(state, text) {
 }
 
 async function loadSchools() {
-  const schools = await window.api.listSchools();
+  schools = await window.api.listSchools();
   schoolSelect.innerHTML = "";
 
   if (schools.length === 0) {
@@ -153,6 +193,7 @@ function setSubtitle(text) {
 async function onSchoolChange() {
   selectedSchoolId = schoolSelect.value || null;
   setSubtitle(selectedSchoolId ? schoolSelect.selectedOptions[0].textContent : "");
+  window.accent.applySchoolAccent(schools.find((s) => s.id === selectedSchoolId));
   clearConnectError();
   resetConnectLog();
   connectBtn.disabled = !selectedSchoolId;
@@ -220,8 +261,7 @@ async function onConnectClick() {
     }
     applyScheduleMenu(menu);
     setSubtitle(menu.schoolName);
-
-    showScreen("screen-mode");
+    enterApp(menu);
   } catch (err) {
     showConnectError(`Unexpected error: ${err.message}`);
   } finally {
@@ -231,6 +271,27 @@ async function onConnectClick() {
     }
   }
 }
+
+// The calendar is home: once connected, it opens on the current month with
+// today selected.
+function enterApp(menu) {
+  document.getElementById("school-name").textContent = menu.schoolName;
+  connectView.hidden = true;
+  appView.hidden = false;
+  document.body.classList.add("app-mode");
+  const now = new Date();
+  loadMonth(now.getFullYear(), now.getMonth() + 1, { selectDate: todayStr() });
+}
+
+// Forgets the remembered school and starts again from the login card.
+document.getElementById("change-school").addEventListener("click", async () => {
+  if (activeJobs().length > 0) {
+    setCalError("Wait for the jobs in the queue to finish before changing school.");
+    return;
+  }
+  await window.api.forgetLastSchool();
+  location.reload();
+});
 
 // --- schedule select helper --------------------------------------------
 
@@ -278,12 +339,51 @@ function populateScheduleSelect(selectEl, includeBlank) {
   }
 }
 
-// --- mode screen ---------------------------------------------------------
+// --- Add bells menu ---------------------------------------------------------
+
+const addBtn = document.getElementById("add-btn");
+const addMenu = document.getElementById("add-menu");
+const menuItems = [...addMenu.querySelectorAll(".menu-item")];
+
+function openAddMenu() {
+  addMenu.hidden = false;
+  addBtn.setAttribute("aria-expanded", "true");
+  menuItems[0].focus();
+}
+function closeAddMenu() {
+  if (addMenu.hidden) return;
+  addMenu.hidden = true;
+  addBtn.setAttribute("aria-expanded", "false");
+}
+
+addBtn.addEventListener("click", () => (addMenu.hidden ? openAddMenu() : closeAddMenu()));
+document.addEventListener("click", (e) => {
+  if (!addMenu.hidden && !e.target.closest(".menu")) closeAddMenu();
+});
+addMenu.addEventListener("keydown", (e) => {
+  const i = menuItems.indexOf(document.activeElement);
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    const next = (i + (e.key === "ArrowDown" ? 1 : -1) + menuItems.length) % menuItems.length;
+    menuItems[next].focus();
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (!addMenu.hidden) {
+    closeAddMenu();
+    addBtn.focus();
+  } else if (!sheet.hidden) {
+    closeSheet();
+  }
+});
 
 document.getElementById("mode-single").addEventListener("click", () => {
-  showScreen("screen-single");
+  document.getElementById("mode-notice").hidden = true;
+  openSingle(cal.date ? [cal.date] : []);
 });
 document.getElementById("mode-range").addEventListener("click", () => {
+  document.getElementById("mode-notice").hidden = true;
   showScreen("screen-range");
 });
 document.getElementById("mode-mine").addEventListener("click", () => {
@@ -302,17 +402,42 @@ document.querySelectorAll(".back-link[data-back]").forEach((btn) => {
 });
 
 // --- single-day screen -----------------------------------------------------
+// Opened with no date (from the menu), one date (a day on the calendar), or
+// several (days picked with Shift or Ctrl/Cmd): one schedule for them all.
+
+let singleDates = []; // set when several days were picked on the calendar
+
+function openSingle(dates) {
+  const many = dates.length > 1;
+  singleDates = many ? [...dates].sort() : [];
+  document.getElementById("single-date-field").hidden = many;
+  document.getElementById("single-dates-field").hidden = !many;
+  document.getElementById("single-error").hidden = true;
+  if (many) {
+    const chips = document.getElementById("single-dates");
+    chips.innerHTML = "";
+    for (const d of singleDates) {
+      const chip = document.createElement("span");
+      chip.className = "date-chip";
+      chip.textContent = shortDate(d);
+      chips.appendChild(chip);
+    }
+  } else {
+    document.getElementById("single-date").value = dates[0] || "";
+  }
+  showScreen("screen-single");
+}
 
 document.getElementById("single-review-btn").addEventListener("click", () => {
-  const date = document.getElementById("single-date").value;
+  const dates = singleDates.length > 0 ? singleDates : [document.getElementById("single-date").value].filter(Boolean);
   const scheduleKey = document.getElementById("single-schedule").value;
   const error = document.getElementById("single-error");
-  error.hidden = !!date;
-  if (!date) {
+  error.hidden = dates.length > 0;
+  if (dates.length === 0) {
     error.textContent = "Pick a date.";
     return;
   }
-  pendingAssignments = [{ date, scheduleKey }];
+  pendingAssignments = dates.map((date) => ({ date, scheduleKey }));
   reviewOrigin = "screen-single";
   showReview();
 });
@@ -694,7 +819,7 @@ document.getElementById("builder-save-btn").addEventListener("click", async () =
     const notice = document.getElementById("mode-notice");
     notice.textContent = `Saved "${label.trim()}". It's now in the schedule list.`;
     notice.hidden = false;
-    showScreen("screen-mode");
+    showScreen("screen-calendar");
   } finally {
     saveBtn.disabled = false;
   }
@@ -716,9 +841,12 @@ const cal = {
   year: null,
   month: null,
   data: null, // latest read-month result for year/month
-  date: null, // selected day, "YYYY-MM-DD"
+  date: null, // the day whose bells the panel shows, "YYYY-MM-DD"
+  days: new Set(), // every day picked (Shift/Ctrl-click picks more than one)
+  anchor: null, // where a Shift-click run starts
   selected: new Set(), // ids of bells ticked in the day panel
   busy: false,
+  loadSeq: 0, // only the newest read of a month is shown
 };
 
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -740,6 +868,12 @@ function nowMinutes() {
 function longDate(dateStr) {
   const [y, m, d] = dateStr.split("-").map(Number);
   return `${WEEKDAYS[new Date(y, m - 1, d).getDay()]}, ${MONTHS[m - 1]} ${d}`;
+}
+
+// "Tue, Nov 24"
+function shortDate(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return `${WEEKDAYS[new Date(y, m - 1, d).getDay()].slice(0, 3)}, ${MONTHS[m - 1].slice(0, 3)} ${d}`;
 }
 
 // "past" = already rang, "upcoming" = later today and hasn't rung yet,
@@ -793,6 +927,8 @@ function renderStrip(track, events, range, { selected, now } = {}) {
 
 // Repeating bells are left alone: deleting one might remove the whole series.
 const canDelete = (e) => e.deletable && !e.repeating;
+// A bell already waiting in a delete job can't be picked again.
+const canSelect = (date, e) => canDelete(e) && !jobs.deleting.has(`${date}#${e.id}`);
 
 function currentDay() {
   if (!cal.data || !cal.date) return null;
@@ -835,8 +971,9 @@ function renderCalendar() {
     if (dow === 0 || dow === 6) cell.classList.add("weekend");
     if (!day.inMonth) cell.classList.add("out");
     if (day.date === today) cell.classList.add("today");
-    if (day.date === cal.date) cell.classList.add("selected");
-    cell.setAttribute("aria-pressed", String(day.date === cal.date));
+    const picked = day.inMonth && cal.days.has(day.date);
+    if (picked) cell.classList.add("selected");
+    cell.setAttribute("aria-pressed", String(picked));
     cell.disabled = !day.inMonth || cal.busy;
     const n = day.events.length;
     cell.setAttribute("aria-label", `${longDate(day.date)}, ${n === 0 ? "no bells" : plural(n, "bell")}`);
@@ -851,30 +988,58 @@ function renderCalendar() {
     count.textContent = n > 0 ? String(n) : "";
     top.append(num, count);
 
+    if (day.inMonth && activeJobs().some((j) => j.dates.includes(day.date))) {
+      cell.classList.add("has-job");
+      const dot = document.createElement("span");
+      dot.className = "cal-job";
+      dot.title = "A job is waiting for this day";
+      top.insertBefore(dot, count);
+    }
+
     const strip = document.createElement("span");
     strip.className = "mini-strip";
     if (day.inMonth) renderStrip(strip, day.events, range);
 
     cell.append(top, strip);
-    cell.addEventListener("click", () => selectDay(day.date));
+    cell.addEventListener("click", (e) => selectDay(day.date, e));
     grid.appendChild(cell);
   }
 }
 
-function selectDay(date) {
-  cal.date = date;
+// A plain click picks one day. Shift-click picks the school days (Monday
+// to Friday) from the last click to this one, plus the two days clicked;
+// Ctrl-click (Cmd-click on Mac) adds or removes any one day, weekends too.
+function selectDay(date, e = {}) {
+  if (e.shiftKey && cal.anchor) {
+    const [from, to] = [cal.anchor, date].sort();
+    const weekday = (d) => ![0, 6].includes(new Date(d.year, d.month - 1, d.day).getDay());
+    cal.days = new Set(
+      monthDays()
+        .filter((d) => d.date === from || d.date === to || (d.date > from && d.date < to && weekday(d)))
+        .map((d) => d.date)
+    );
+  } else if (e.metaKey || e.ctrlKey) {
+    if (cal.days.has(date)) cal.days.delete(date);
+    else cal.days.add(date);
+    cal.anchor = date;
+  } else {
+    cal.days = new Set([date]);
+    cal.anchor = date;
+  }
+  cal.date = cal.days.has(date) ? date : [...cal.days].pop() || null;
   cal.selected.clear();
-  document.getElementById("delete-result").hidden = true;
-  document.getElementById("delete-meter").hidden = true;
   closeConfirm();
   renderCalendar();
   renderDayPanel();
 }
 
 function renderDayPanel() {
-  const panel = document.getElementById("day-panel");
   const day = currentDay();
-  panel.hidden = !day;
+  const many = cal.days.size > 1;
+  document.getElementById("day-empty").hidden = many || !!day;
+  document.getElementById("day-one").hidden = many || !day;
+  document.getElementById("day-many").hidden = !many;
+  if (many) return renderManyDays();
   if (!day) return;
 
   const n = day.events.length;
@@ -893,15 +1058,17 @@ function renderDayPanel() {
   }
   for (const e of day.events) {
     const timing = bellTiming(day.date, e.start);
+    const deleting = jobs.deleting.get(`${day.date}#${e.id}`); // "queued" | "running"
     const row = document.createElement("label");
     row.className = "bell-row";
-    if (!canDelete(e)) row.classList.add("locked");
+    if (!canSelect(day.date, e)) row.classList.add("locked");
+    if (deleting) row.classList.add("pending");
     if (cal.selected.has(e.id)) row.classList.add("selected");
 
     const box = document.createElement("input");
     box.type = "checkbox";
     box.checked = cal.selected.has(e.id);
-    box.disabled = !canDelete(e) || cal.busy;
+    box.disabled = !canSelect(day.date, e) || cal.busy;
     box.addEventListener("change", () => {
       if (box.checked) cal.selected.add(e.id);
       else cal.selected.delete(e.id);
@@ -926,6 +1093,8 @@ function renderDayPanel() {
     row.append(box, time, swatch, title, details);
 
     const tag =
+      deleting === "running" ? ["Deleting", "job"] :
+      deleting ? ["Waiting to delete", "job"] :
       e.repeating ? ["Repeats", ""] :
       !e.deletable ? ["Can't delete here", ""] :
       timing === "upcoming" ? ["Later today", "upcoming"] :
@@ -939,8 +1108,62 @@ function renderDayPanel() {
     list.appendChild(row);
   }
 
+  renderDayJobs(day.date);
   renderDayActions();
 }
+
+// Jobs waiting for (or working on) this day, above its bells.
+function renderDayJobs(date) {
+  const box = document.getElementById("day-jobs");
+  box.innerHTML = "";
+  const here = activeJobs().filter((j) => j.dates.includes(date));
+  box.hidden = here.length === 0;
+  for (const j of here) {
+    const row = document.createElement("button");
+    row.className = "day-job";
+    row.title = "Show this job";
+    const label = document.createElement("span");
+    label.textContent = j.label;
+    const state = document.createElement("span");
+    state.className = "day-job-state";
+    state.textContent = j.status === "running" ? `${j.progress.done} of ${j.progress.total}` : "Waiting";
+    row.append(label, state);
+    row.addEventListener("click", () => openJob(j.id));
+    box.appendChild(row);
+  }
+}
+
+// Several days picked: list them, then apply one schedule to all of them.
+function renderManyDays() {
+  const days = monthDays().filter((d) => cal.days.has(d.date));
+  const bells = days.reduce((n, d) => n + d.events.length, 0);
+  document.getElementById("many-title").textContent = `${plural(days.length, "day")} selected`;
+  document.getElementById("many-count").textContent =
+    bells === 0 ? "No bells on them yet" : `${plural(bells, "bell")} on them already`;
+  const list = document.getElementById("many-list");
+  list.innerHTML = "";
+  for (const d of days) {
+    const row = document.createElement("div");
+    row.className = "bell-row locked";
+    const date = document.createElement("span");
+    date.className = "bell-title";
+    date.textContent = longDate(d.date);
+    const count = document.createElement("span");
+    count.className = "bell-details";
+    count.textContent = d.events.length === 0 ? "No bells" : plural(d.events.length, "bell");
+    row.append(date, count);
+    list.appendChild(row);
+  }
+  document.getElementById("many-apply").disabled = cal.busy;
+}
+
+document.getElementById("many-apply").addEventListener("click", () => openSingle([...cal.days]));
+document.getElementById("day-apply").addEventListener("click", () => cal.date && openSingle([cal.date]));
+document.getElementById("many-clear").addEventListener("click", () => {
+  cal.days = cal.date ? new Set([cal.date]) : new Set();
+  renderCalendar();
+  renderDayPanel();
+});
 
 function renderDayStrip() {
   const day = currentDay();
@@ -968,8 +1191,9 @@ function renderDayStrip() {
 
 function renderDayActions() {
   const day = currentDay();
-  const deletable = day ? day.events.filter(canDelete) : [];
+  const deletable = day ? day.events.filter((e) => canSelect(day.date, e)) : [];
   const k = cal.selected.size;
+  document.getElementById("day-apply").disabled = cal.busy;
   document.getElementById("day-select-all").disabled = cal.busy || deletable.length === 0;
   document.getElementById("day-select-none").disabled = cal.busy || k === 0;
   const del = document.getElementById("day-delete");
@@ -980,7 +1204,7 @@ function renderDayActions() {
 document.getElementById("day-select-all").addEventListener("click", () => {
   const day = currentDay();
   if (!day) return;
-  for (const e of day.events) if (canDelete(e)) cal.selected.add(e.id);
+  for (const e of day.events) if (canSelect(day.date, e)) cal.selected.add(e.id);
   renderDayPanel();
 });
 
@@ -1043,7 +1267,6 @@ function openConfirm() {
   confirmBtn.disabled = upcoming.length > 0;
   confirmBtn.textContent = `Delete ${plural(bells.length, "bell")}`;
 
-  document.getElementById("delete-result").hidden = true;
   document.getElementById("day-actions").hidden = true;
   document.getElementById("confirm-panel").hidden = false;
 }
@@ -1054,92 +1277,47 @@ document.getElementById("confirm-ack").addEventListener("change", (e) => {
 document.getElementById("day-delete").addEventListener("click", openConfirm);
 document.getElementById("confirm-cancel").addEventListener("click", closeConfirm);
 
-function setDeleteMeter(done, total, text) {
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  document.getElementById("delete-fill").style.width = `${pct}%`;
-  document.getElementById("delete-pct").textContent = `${pct}%`;
-  document.getElementById("delete-meter").setAttribute("aria-valuenow", String(pct));
-  if (text) document.getElementById("delete-count").textContent = text;
-}
-
+// Deleting is a job: it's checked and queued straight away, and the bells
+// show as waiting until it runs. The notice in the top right says how it went.
 document.getElementById("confirm-delete").addEventListener("click", async () => {
   const day = currentDay();
   const bells = selectedBells();
   if (!day || bells.length === 0) return;
-
-  closeConfirm();
-  cal.busy = true;
-  renderCalendar();
-  renderDayPanel();
-
-  const meter = document.getElementById("delete-meter");
-  const summary = document.getElementById("delete-result");
-  meter.classList.remove("fail", "done");
-  meter.hidden = false;
-  summary.hidden = true;
-  setDeleteMeter(0, bells.length, `Deleting 1 of ${bells.length}`);
-
-  const unsubscribe = window.api.onDeleteProgress((p) => {
-    if (p.type === "start") {
-      setDeleteMeter(p.index - 1, p.total, `Deleting ${p.index} of ${p.total}: ${p.event.start} ${p.event.title}`);
-    } else if (p.type === "ok") {
-      setDeleteMeter(p.index, p.total);
-    } else if (p.type === "fail") {
-      meter.classList.add("fail");
-    } else if (p.type === "verify") {
-      document.getElementById("delete-count").textContent = "Checking the calendar";
-    }
-  });
-
+  const btn = document.getElementById("confirm-delete");
+  btn.disabled = true;
   let result;
   try {
-    result = await window.api.deleteBells(bells.map((e) => ({ date: day.date, id: e.id })));
+    result = await window.api.queueDelete(bells.map((e) => ({ date: day.date, id: e.id })));
   } catch (err) {
     result = { ok: false, error: err.message };
-  } finally {
-    unsubscribe();
   }
-
-  const key = `${cal.year}-${pad2(cal.month)}`;
-  if (result.months && result.months[key]) cal.data = { ok: true, ...result.months[key] };
+  closeConfirm();
+  if (!result.ok) {
+    setCalError(result.error);
+    return;
+  }
+  setCalError("");
   cal.selected.clear();
-  cal.busy = false;
-
-  if (result.ok) {
-    meter.classList.add("done");
-    setDeleteMeter(result.deleted, result.deleted, `Deleted ${plural(result.deleted, "bell")}`);
-    summary.className = "progress-summary success";
-    summary.textContent = `Deleted ${plural(result.deleted, "bell")} from ${longDate(day.date)}.`;
-  } else {
-    meter.classList.add("fail");
-    const parts = [];
-    if (result.failed) {
-      parts.push(
-        `Stopped after deleting ${result.deleted} of ${result.requested}. ` +
-          `${result.failed.start} ${result.failed.title} wasn't deleted (the calendar answered ${result.failed.status}).`
-      );
-    }
-    if (result.stillThere && result.stillThere.length > 0) {
-      parts.push(`These still show on the calendar: ${result.stillThere.join(", ")}.`);
-    }
-    if (parts.length === 0) parts.push(result.error || "The delete stopped without an error message.");
-    if (result.requested === undefined) meter.hidden = true; // rejected before anything was sent
-    document.getElementById("delete-count").textContent = "Stopped";
-    summary.className = "progress-summary fail";
-    summary.textContent = parts.join(" ");
-  }
-  summary.hidden = false;
-  renderCalendar();
+  queuedToast(result.jobId);
   renderDayPanel();
 });
 
-async function loadMonth(year, month, { selectDate } = {}) {
+// quiet: re-read in the background after a job, without locking the
+// calendar or showing "Loading" (and without clearing an error on screen).
+async function loadMonth(year, month, { selectDate, quiet = false } = {}) {
+  const seq = ++cal.loadSeq;
   cal.year = year;
   cal.month = month;
-  cal.busy = true;
-  setCalError("");
-  setCalStatus(`Loading ${MONTHS[month - 1]} ${year} from the calendar`);
-  renderCalendar();
+  if (!quiet) {
+    cal.busy = true;
+    setCalError("");
+    setCalStatus(
+      activeJobs().some((j) => j.status === "running")
+        ? `Loading ${MONTHS[month - 1]} ${year} (after the bell being sent now)`
+        : `Loading ${MONTHS[month - 1]} ${year} from the calendar`
+    );
+    renderCalendar();
+  }
 
   let result;
   try {
@@ -1147,10 +1325,12 @@ async function loadMonth(year, month, { selectDate } = {}) {
   } catch (err) {
     result = { ok: false, error: err.message };
   }
+  if (seq !== cal.loadSeq) return; // a newer read has taken over
   cal.busy = false;
   setCalStatus("");
 
   if (!result.ok) {
+    if (quiet) return;
     cal.data = null;
     setCalError(result.error);
     renderCalendar();
@@ -1162,9 +1342,13 @@ async function loadMonth(year, month, { selectDate } = {}) {
   const prefix = `${year}-${pad2(month)}`;
   if (selectDate) {
     cal.date = selectDate;
+    cal.days = new Set([selectDate]);
+    cal.anchor = selectDate;
     cal.selected.clear();
   } else if (!cal.date || !cal.date.startsWith(prefix)) {
     cal.date = todayStr().startsWith(prefix) ? todayStr() : null;
+    cal.days = new Set(cal.date ? [cal.date] : []);
+    cal.anchor = cal.date;
     cal.selected.clear();
   } else {
     // Same month reloaded: keep ticks only on bells that are still there.
@@ -1189,40 +1373,59 @@ document.getElementById("cal-today").addEventListener("click", () => {
   loadMonth(now.getFullYear(), now.getMonth() + 1, { selectDate: todayStr() });
 });
 
-// Always reads fresh on the way in: the create flows may have just added bells.
-document.getElementById("mode-calendar").addEventListener("click", () => {
-  document.getElementById("mode-notice").hidden = true;
-  showScreen("screen-calendar");
-  window.api.fitCalendar();
-  const now = new Date();
-  loadMonth(cal.year || now.getFullYear(), cal.month || now.getMonth() + 1);
-});
 
 // --- review screen ---------------------------------------------------------
+
+// The bells already on a date, when that month is on screen (null if unknown).
+function knownBellCount(date) {
+  if (!cal.data || !date.startsWith(`${cal.year}-${pad2(cal.month)}`)) return null;
+  const day = cal.data.days.find((d) => d.date === date && d.inMonth);
+  return day ? day.events.length : null;
+}
 
 function showReview() {
   const list = document.getElementById("review-list");
   list.innerHTML = "";
   let total = 0;
+  const busyDays = [];
 
   for (const { date, scheduleKey } of pendingAssignments) {
     const item = scheduleMenu.items.find((i) => i.key === scheduleKey);
     total += item ? item.eventCount : 0;
+    const existing = knownBellCount(date);
+    const queued = activeJobs().some((j) => j.kind === "create" && j.dates.includes(date));
+    if (existing || queued) busyDays.push(date);
 
     const row = document.createElement("div");
-    row.className = "review-item";
+    row.className = existing || queued ? "review-item busy" : "review-item";
     const left = document.createElement("span");
-    left.textContent = date;
+    left.textContent = shortDate(date);
+    if (existing || queued) {
+      const note = document.createElement("span");
+      note.className = "review-note";
+      note.textContent = existing ? ` already has ${plural(existing, "bell")}` : " has bells queued";
+      left.appendChild(note);
+    }
     const right = document.createElement("span");
     right.className = "review-schedule";
     right.textContent = item ? `${item.label} (${item.eventCount})` : scheduleKey;
-    row.appendChild(left);
-    row.appendChild(right);
+    row.append(left, right);
     list.appendChild(row);
   }
 
+  // Creating doesn't replace what's there; a day with bells gets a second set.
+  const warning = document.getElementById("review-warning");
+  warning.hidden = busyDays.length === 0;
+  if (busyDays.length > 0) {
+    const one = busyDays.length === 1;
+    warning.textContent =
+      `${one ? "1 of these days already has" : `${busyDays.length} of these days already have`} bells. ` +
+      `The new bells are added alongside them, so ${one ? "that day" : "those days"} will ring both sets. ` +
+      `If you're replacing a schedule, delete the old bells first.`;
+  }
+
   document.getElementById("review-total").textContent =
-    `${pendingAssignments.length} day(s), ${total} events total`;
+    `${plural(pendingAssignments.length, "day")}, ${plural(total, "bell")} total`;
   showScreen("screen-review");
 }
 
@@ -1230,111 +1433,367 @@ document.getElementById("review-back").addEventListener("click", () => {
   showScreen(reviewOrigin);
 });
 
-// --- progress screen ---------------------------------------------------------
-
-function setMeter(done, total) {
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  document.getElementById("progress-fill").style.width = `${pct}%`;
-  document.getElementById("progress-pct").textContent = `${pct}%`;
-  document.getElementById("progress-count").textContent = `${done} of ${total} events created`;
-  document.getElementById("progress-meter").setAttribute("aria-valuenow", String(pct));
-}
-
-function appendProgressLine(p, multiDate) {
-  const log = document.getElementById("progress-log");
-  const line = document.createElement("div");
-
-  if (p.type === "date-start") {
-    line.className = "line heading";
-    line.textContent = `${p.date}: ${p.label}`;
-  } else if (p.type === "event-start") {
-    line.className = "line";
-    const overallSuffix = multiDate ? ` (${p.overallIndex}/${p.totalEvents} overall)` : "";
-    line.textContent = `Creating ${p.index}/${p.countForDate}${overallSuffix}: ${p.event.title} @ ${p.event.start}`;
-  } else if (p.type === "event-fail") {
-    line.className = "line fail";
-    line.textContent = `Failed: ${p.error}`;
-  } else if (p.type === "verify") {
-    line.className = "line heading";
-    line.textContent = "Checking the calendar…";
-  } else {
-    return; // event-ok: no separate line, to keep the log short
-  }
-
-  log.appendChild(line);
-  log.scrollTop = log.scrollHeight;
-}
-
+// Creating is a job: it's queued and the panel closes, so the calendar can
+// be used while the bells are sent.
 document.getElementById("review-confirm-btn").addEventListener("click", async () => {
-  showScreen("screen-progress");
-  const log = document.getElementById("progress-log");
-  const summary = document.getElementById("progress-summary");
-  const doneBtn = document.getElementById("progress-done-btn");
-  log.innerHTML = "";
-  summary.hidden = true;
-  doneBtn.hidden = true;
-  document.getElementById("progress-heading").textContent = "Creating events…";
-
-  const total = pendingAssignments.reduce((sum, { scheduleKey }) => {
-    const item = scheduleMenu.items.find((i) => i.key === scheduleKey);
-    return sum + (item ? item.eventCount : 0);
-  }, 0);
-  const meter = document.getElementById("progress-meter");
-  meter.classList.remove("fail", "done");
-  setMeter(0, total);
-
-  const multiDate = pendingAssignments.length > 1;
-  const unsubscribe = window.api.onCreateProgress((p) => {
-    appendProgressLine(p, multiDate);
-    if (p.type === "event-ok") setMeter(p.overallIndex, p.totalEvents);
-    if (p.type === "event-fail") meter.classList.add("fail");
-  });
-
-  const result = await window.api.createEvents(pendingAssignments);
-  unsubscribe();
-
-  document.getElementById("progress-heading").textContent = result.ok ? "Done" : "Stopped";
-
-  if (result.ok) {
-    meter.classList.add("done");
-  } else {
-    // Say it in words too: the bar's red alone is too close to the
-    // in-progress color in dark mode to signal a failure by itself.
-    meter.classList.add("fail");
-    const done = result.succeeded || 0;
-    document.getElementById("progress-count").textContent = `Stopped after ${done} of ${total} events`;
+  const btn = document.getElementById("review-confirm-btn");
+  btn.disabled = true;
+  let result;
+  try {
+    result = await window.api.queueCreate(pendingAssignments);
+  } catch (err) {
+    result = { ok: false, error: err.message };
+  } finally {
+    btn.disabled = false;
   }
-
-  if (result.ok) {
-    summary.className = "progress-summary success";
-    summary.textContent = `Created all ${result.totalEvents} events.`;
-  } else if (result.haltedOn) {
-    summary.className = "progress-summary fail";
-    summary.textContent =
-      `Stopped at ${result.haltedOn}. Created ${result.succeeded} of ${result.totalEvents} events. ` +
-      `Open Calendar to see what's there.`;
-  } else if (result.missing && result.missing.length > 0) {
-    summary.className = "progress-summary fail";
-    summary.textContent =
-      `Created ${result.succeeded} events, but ${plural(result.missing.length, "bell")} didn't show up ` +
-      `on the calendar afterward: ${result.missing.join(", ")}. Open Calendar to check.`;
-  } else {
-    summary.className = "progress-summary fail";
-    summary.textContent = result.error || "The run stopped without an error message.";
+  if (!result.ok) {
+    const box = document.getElementById("review-error");
+    box.textContent = result.error;
+    box.hidden = false;
+    return;
   }
-  summary.hidden = false;
-  doneBtn.hidden = false;
-});
-
-document.getElementById("progress-done-btn").addEventListener("click", () => {
+  document.getElementById("review-error").hidden = true;
   pendingAssignments = [];
   document.getElementById("range-table-wrap").hidden = true;
   document.querySelector("#range-table tbody").innerHTML = "";
   document.getElementById("range-start").value = "";
   document.getElementById("range-end").value = "";
   document.getElementById("single-date").value = "";
-  showScreen("screen-mode");
+  showScreen("screen-calendar");
+  queuedToast(result.jobId);
 });
+
+// --- jobs: the queue, its tray, and the notices -------------------------------
+// The main process owns the queue (engine/job-queue.js) and sends all of it
+// on every change. Everything here is drawn from that snapshot.
+
+const jobs = {
+  list: [],
+  paused: null,
+  deleting: new Map(), // "date#id" -> "queued" | "running", for bells in delete jobs
+  seen: new Map(), // id -> last status, to spot jobs that just finished
+};
+let jobView = null; // id of the job shown in the panel, if any
+
+const activeJobs = () => jobs.list.filter((j) => j.status === "queued" || j.status === "running");
+const findJob = (id) => jobs.list.find((j) => j.id === id);
+
+function applyJobs(snapshot) {
+  jobs.list = snapshot.jobs;
+  jobs.paused = snapshot.paused;
+  jobs.deleting = new Map();
+  for (const j of activeJobs()) {
+    if (j.kind !== "delete") continue;
+    for (const b of j.meta.bells) jobs.deleting.set(`${b.date}#${b.id}`, j.status);
+  }
+
+  // Jobs that finished since the last update: tell the person, and re-read
+  // the month if it touched what's on screen.
+  let refresh = false;
+  for (const j of jobs.list) {
+    const before = jobs.seen.get(j.id);
+    if (before !== j.status && (j.status === "done" || j.status === "failed")) {
+      if (before !== undefined) finishedToast(j);
+      if (cal.year && j.dates.some((d) => d.startsWith(`${cal.year}-${pad2(cal.month)}`))) refresh = true;
+    }
+    jobs.seen.set(j.id, j.status);
+  }
+
+  // Ticks on bells that just went into a delete job are dropped.
+  const day = currentDay();
+  if (day) for (const id of [...cal.selected]) if (jobs.deleting.has(`${day.date}#${id}`)) cal.selected.delete(id);
+
+  renderJobsButton();
+  renderJobsTray();
+  renderPaused();
+  if (jobView !== null) renderJobView();
+  if (cal.data) {
+    renderCalendar();
+    renderDayPanel();
+  }
+  if (refresh) loadMonth(cal.year, cal.month, { quiet: true });
+}
+
+// --- top-bar button: a ring for overall progress, and a count -----------------
+
+const jobsBtn = document.getElementById("jobs-btn");
+const jobsTray = document.getElementById("jobs-tray");
+
+function renderJobsButton() {
+  const active = activeJobs();
+  const failed = jobs.list.filter((j) => j.status === "failed").length;
+  jobsBtn.hidden = jobs.list.length === 0;
+  const total = active.reduce((n, j) => n + j.progress.total, 0);
+  const done = active.reduce((n, j) => n + j.progress.done, 0);
+  const pct = total > 0 ? done / total : 0;
+  const ring = document.getElementById("jobs-ring-fill");
+  const c = 2 * Math.PI * 8;
+  ring.style.strokeDasharray = `${c * pct} ${c}`;
+  jobsBtn.classList.toggle("working", active.length > 0);
+  jobsBtn.classList.toggle("attention", !!jobs.paused || (active.length === 0 && failed > 0));
+  document.getElementById("jobs-label").textContent =
+    jobs.paused ? "Paused" :
+    active.length > 0 ? `${plural(active.length, "job")}` :
+    failed > 0 ? `${failed} stopped` : "Jobs done";
+  jobsBtn.setAttribute(
+    "aria-label",
+    active.length > 0 ? `${plural(active.length, "job")} running or waiting, ${Math.round(pct * 100)}% done` : "Jobs"
+  );
+}
+
+function openTray() {
+  jobsTray.hidden = false;
+  jobsBtn.setAttribute("aria-expanded", "true");
+}
+function closeTray() {
+  jobsTray.hidden = true;
+  jobsBtn.setAttribute("aria-expanded", "false");
+}
+jobsBtn.addEventListener("click", () => {
+  closeAddMenu();
+  jobsTray.hidden ? openTray() : closeTray();
+});
+document.addEventListener("click", (e) => {
+  if (!jobsTray.hidden && !e.target.closest(".jobs-menu")) closeTray();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !jobsTray.hidden) {
+    closeTray();
+    jobsBtn.focus();
+  }
+});
+
+const STATUS_TEXT = { queued: "Waiting", running: "Working", done: "Done", failed: "Stopped", cancelled: "Cancelled" };
+
+function renderJobsTray() {
+  const list = document.getElementById("jobs-list");
+  list.innerHTML = "";
+  document.getElementById("jobs-clear").hidden = !jobs.list.some((j) => !["queued", "running"].includes(j.status));
+  if (jobs.list.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = "Nothing in the queue.";
+    list.appendChild(empty);
+    return;
+  }
+  // Running first, then waiting in order, then finished (newest first).
+  const rank = { running: 0, queued: 1 };
+  const sorted = [...jobs.list].sort((a, b) =>
+    (rank[a.status] ?? 2) - (rank[b.status] ?? 2) || ((rank[a.status] ?? 2) === 2 ? b.finishedAt - a.finishedAt : a.id - b.id)
+  );
+  for (const j of sorted) {
+    const row = document.createElement("div");
+    row.className = `job-row ${j.status}`;
+
+    const head = document.createElement("div");
+    head.className = "job-head";
+    const title = document.createElement("button");
+    title.className = "job-title link-btn";
+    title.textContent = j.label;
+    title.addEventListener("click", () => {
+      closeTray();
+      openJob(j.id);
+    });
+    const status = document.createElement("span");
+    status.className = `job-status ${j.status}`;
+    status.textContent = STATUS_TEXT[j.status];
+    head.append(title, status);
+    row.appendChild(head);
+
+    if (j.status === "running") {
+      row.appendChild(meterEl(j.progress.done, j.progress.total));
+      const text = document.createElement("p");
+      text.className = "job-text";
+      text.textContent = j.progress.text;
+      row.appendChild(text);
+    } else if (j.status === "done" || j.status === "failed") {
+      const text = document.createElement("p");
+      text.className = "job-text";
+      text.textContent = j.result.summary;
+      row.appendChild(text);
+    }
+
+    if (j.status === "queued") {
+      const cancel = document.createElement("button");
+      cancel.className = "link-btn job-cancel";
+      cancel.textContent = "Cancel";
+      cancel.addEventListener("click", () => window.api.cancelJob(j.id));
+      row.appendChild(cancel);
+    }
+    list.appendChild(row);
+  }
+}
+
+document.getElementById("jobs-clear").addEventListener("click", () => window.api.clearFinishedJobs());
+
+function meterEl(done, total) {
+  const track = document.createElement("div");
+  track.className = "meter-track";
+  const fill = document.createElement("div");
+  fill.className = "meter-fill";
+  fill.style.width = `${total > 0 ? Math.round((done / total) * 100) : 0}%`;
+  track.appendChild(fill);
+  return track;
+}
+
+// --- paused queue -----------------------------------------------------------------
+
+function renderPaused() {
+  const box = document.getElementById("jobs-paused");
+  const waiting = jobs.list.filter((j) => j.status === "queued").length;
+  box.hidden = !jobs.paused;
+  if (jobs.paused) {
+    document.getElementById("jobs-paused-text").textContent =
+      `The queue is paused: ${jobs.paused.reason} ${plural(waiting, "job")} ${waiting === 1 ? "is" : "are"} waiting. ` +
+      `Fix that, then resume.`;
+  }
+}
+document.getElementById("jobs-resume").addEventListener("click", () => window.api.resumeJobs());
+
+// --- one job in detail, in the panel ------------------------------------------------
+
+function openJob(id) {
+  jobView = id;
+  showScreen("screen-progress");
+  renderJobView();
+}
+
+function renderJobView() {
+  const j = findJob(jobView);
+  if (!j) {
+    closeSheet();
+    return;
+  }
+  sheetTitle.textContent = j.label;
+  const verb = j.kind === "delete" ? "deleted" : "created";
+  const pct = j.progress.total > 0 ? Math.round((j.progress.done / j.progress.total) * 100) : 0;
+  document.getElementById("progress-heading").textContent =
+    j.status === "running" ? j.progress.text : STATUS_TEXT[j.status];
+  document.getElementById("progress-fill").style.width = `${pct}%`;
+  document.getElementById("progress-pct").textContent = `${pct}%`;
+  document.getElementById("progress-count").textContent = `${j.progress.done} of ${plural(j.progress.total, "bell")} ${verb}`;
+  const meter = document.getElementById("progress-meter");
+  meter.setAttribute("aria-valuenow", String(pct));
+  meter.classList.toggle("done", j.status === "done");
+  meter.classList.toggle("fail", j.status === "failed");
+
+  const log = document.getElementById("progress-log");
+  const atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 4;
+  log.innerHTML = "";
+  log.hidden = j.log.length === 0;
+  for (const text of j.log) {
+    const line = document.createElement("div");
+    line.className = text.startsWith("Failed") ? "line fail" : /^\w{3}, \w{3} \d/.test(text) ? "line heading" : "line";
+    line.textContent = text;
+    log.appendChild(line);
+  }
+  if (atBottom) log.scrollTop = log.scrollHeight;
+
+  const summary = document.getElementById("progress-summary");
+  summary.hidden = !j.result;
+  if (j.result) {
+    summary.className = `progress-summary ${j.result.ok ? "success" : "fail"}`;
+    summary.textContent = j.result.summary;
+  }
+  document.getElementById("job-cancel").hidden = j.status !== "queued";
+  document.getElementById("job-show-day").hidden = j.dates.length === 0;
+}
+
+document.getElementById("job-cancel").addEventListener("click", () => jobView !== null && window.api.cancelJob(jobView));
+document.getElementById("job-show-day").addEventListener("click", () => {
+  const j = findJob(jobView);
+  closeSheet();
+  if (j) goToDate(j.dates[0]);
+});
+document.getElementById("progress-done-btn").addEventListener("click", () => closeSheet());
+
+// Opens the month a date is in, with that day selected.
+function goToDate(date) {
+  const [y, m] = date.split("-").map(Number);
+  loadMonth(y, m, { selectDate: date });
+}
+
+// --- notices, top right --------------------------------------------------------------
+// A job added: a short note that it's queued. A job finished: what happened,
+// with a link to the day. Success notices go after a few seconds; a stopped
+// job's notice stays until it's closed.
+
+function toast({ kind = "info", title, body, actions = [], timeout = 0 }) {
+  const box = document.getElementById("toasts");
+  const el = document.createElement("div");
+  el.className = `toast ${kind}`;
+  el.setAttribute("role", kind === "fail" ? "alert" : "status");
+  const text = document.createElement("div");
+  text.className = "toast-text";
+  const t = document.createElement("p");
+  t.className = "toast-title";
+  t.textContent = title;
+  text.appendChild(t);
+  if (body) {
+    const b = document.createElement("p");
+    b.className = "toast-body";
+    b.textContent = body;
+    text.appendChild(b);
+  }
+  const row = document.createElement("div");
+  row.className = "toast-actions";
+  for (const a of actions) {
+    const btn = document.createElement("button");
+    btn.className = "link-btn";
+    btn.textContent = a.label;
+    btn.addEventListener("click", () => {
+      remove();
+      a.run();
+    });
+    row.appendChild(btn);
+  }
+  if (actions.length) text.appendChild(row);
+  const close = document.createElement("button");
+  close.className = "icon-btn toast-close";
+  close.setAttribute("aria-label", "Dismiss");
+  close.textContent = "\u00d7";
+  close.addEventListener("click", () => remove());
+  el.append(text, close);
+  box.prepend(el);
+  // Keep the corner tidy: at most four at once.
+  while (box.children.length > 4) box.lastElementChild.remove();
+
+  let timer = timeout ? setTimeout(remove, timeout) : null;
+  // Don't let a notice vanish while the pointer is on it.
+  el.addEventListener("mouseenter", () => timer && clearTimeout(timer));
+  el.addEventListener("mouseleave", () => timeout && (timer = setTimeout(remove, 2000)));
+  function remove() {
+    if (timer) clearTimeout(timer);
+    el.remove();
+  }
+}
+
+function queuedToast(jobId) {
+  const j = findJob(jobId);
+  const ahead = activeJobs().filter((x) => x.id < jobId).length;
+  toast({
+    title: j ? `Queued: ${j.label}` : "Added to the queue",
+    body: ahead > 0 ? `It starts after ${plural(ahead, "job")} ahead of it. You can keep working.` : "Starting now. You can keep working.",
+    actions: [{ label: "Show progress", run: () => openJob(jobId) }],
+    timeout: 5000,
+  });
+}
+
+function finishedToast(j) {
+  toast({
+    kind: j.status === "done" ? "success" : "fail",
+    title: j.status === "done" ? `Done: ${j.label}` : `Stopped: ${j.label}`,
+    body: j.result.summary,
+    actions: [
+      ...(j.dates.length ? [{ label: "Show day", run: () => goToDate(j.dates[0]) }] : []),
+      { label: "Details", run: () => openJob(j.id) },
+    ],
+    timeout: j.status === "done" ? 6000 : 0,
+  });
+}
+
+window.api.onJobs(applyJobs);
+window.api.getJobs().then(applyJobs);
 
 // --- wire up + boot ---------------------------------------------------------
 
@@ -1346,14 +1805,28 @@ connectBtn.addEventListener("click", onConnectClick);
 // feedback — surface it wherever the connect screen's error box is
 // visible, since that's the one place always present regardless of which
 // screen is showing.
+function showUnexpected(message) {
+  if (appView.hidden) showConnectError(`Unexpected error: ${message}`);
+  else setCalError(`Unexpected error: ${message}`);
+}
 window.addEventListener("unhandledrejection", (e) => {
   console.error(e.reason);
-  showConnectError(`Unexpected error: ${e.reason && e.reason.message ? e.reason.message : e.reason}`);
+  showUnexpected(e.reason && e.reason.message ? e.reason.message : e.reason);
 });
 window.addEventListener("error", (e) => {
   console.error(e.error);
-  showConnectError(`Unexpected error: ${e.message}`);
+  showUnexpected(e.message);
 });
 
-renderSteps("screen-connect");
-loadSchools();
+// Opens the last school's login straight away, once the splash is done, so
+// most days it's splash, log in, calendar.
+async function boot() {
+  await loadSchools();
+  const last = await window.api.getLastSchool();
+  await window.splashDone;
+  if (last && schools.some((s) => s.id === last) && !selectedSchoolId) {
+    schoolSelect.value = last;
+    onSchoolChange();
+  }
+}
+boot();

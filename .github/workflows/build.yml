@@ -4,10 +4,23 @@ on:
   push:
     tags:
       - "v*"
-  workflow_dispatch: {}
+  # "Run workflow" by hand: with a release version (e.g. v2.1.0) it makes the
+  # same draft release a pushed tag does, from the branch it's run on; the
+  # tag itself is created when the draft is published. Left blank, it only
+  # builds (nothing is uploaded).
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Release version to draft, e.g. v2.1.0 (blank: build only)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
+
+env:
+  # The release this run feeds: the pushed tag, or the version typed in.
+  RELEASE: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.release }}
 
 jobs:
   # A version tag gets a DRAFT release first; both builds then attach their
@@ -16,20 +29,39 @@ jobs:
   # through Actions artifacts: this repo is private, and artifact storage is
   # capped for private repos (it filled up and failed the first 2.0 build).
   create-release:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || inputs.release != ''
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
+      # The release notes come from docs/releases/<version>.md when there is one.
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            docs/releases
+            app/package.json
+          sparse-checkout-cone-mode: false
+      # A release named for one version must contain that version's build.
       - run: |
-          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
-            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft \
-              --title "$GITHUB_REF_NAME" --notes "Installers for $GITHUB_REF_NAME."
+          version="v$(node -p 'require("./app/package.json").version')"
+          if [ "$version" != "$RELEASE" ]; then
+            echo "::error::app/package.json says $version, but the release is $RELEASE. Bump the version first."
+            exit 1
+          fi
+      - run: |
+          notes="docs/releases/$RELEASE.md"
+          if [ ! -f "$notes" ]; then
+            notes="$RUNNER_TEMP/notes.md"
+            echo "Installers for $RELEASE." > "$notes"
+          fi
+          gh release view "$RELEASE" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create "$RELEASE" --repo "$GITHUB_REPOSITORY" --draft \
+              --target "$GITHUB_SHA" --title "$RELEASE" --notes-file "$notes"
 
   build-mac:
     needs: create-release
-    # Still builds on a manual run (create-release is skipped then); only
-    # the upload step needs a tag.
+    # Still builds on a manual run with no version (create-release is
+    # skipped then); only the upload step needs a release.
     if: ${{ !failure() && !cancelled() }}
     runs-on: macos-latest
     steps:
@@ -43,10 +75,10 @@ jobs:
         working-directory: app
       # The token is only given to the upload, so electron-builder never
       # sees it and never tries to publish anything itself.
-      - if: startsWith(github.ref, 'refs/tags/')
+      - if: env.RELEASE != ''
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" app/dist/*.dmg app/dist/*.zip --repo "$GITHUB_REPOSITORY" --clobber
+        run: gh release upload "$RELEASE" app/dist/*.dmg app/dist/*.zip --repo "$GITHUB_REPOSITORY" --clobber
 
   build-win:
     needs: create-release
@@ -61,8 +93,8 @@ jobs:
         working-directory: app
       - run: npm run dist:win
         working-directory: app
-      - if: startsWith(github.ref, 'refs/tags/')
+      - if: env.RELEASE != ''
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
-        run: gh release upload "$GITHUB_REF_NAME" app/dist/*.exe --repo "$GITHUB_REPOSITORY" --clobber
+        run: gh release upload "$RELEASE" app/dist/*.exe --repo "$GITHUB_REPOSITORY" --clobber

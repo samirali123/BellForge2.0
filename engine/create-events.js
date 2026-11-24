@@ -25,6 +25,7 @@ async function createEvents({ schedules, createEvent, readMonth, assignments, on
   let succeeded = 0;
   let overallIndex = 0;
   let haltedOn = null;
+  let haltCode = null; // the error's code, e.g. UNREACHABLE, so a queue can pause
   const created = [];
 
   for (const { date, scheduleKey } of assignments) {
@@ -51,6 +52,7 @@ async function createEvents({ schedules, createEvent, readMonth, assignments, on
       } catch (err) {
         onProgress({ type: "event-fail", date, event, error: err.message });
         haltedOn = `${date} ${event.title}`;
+        haltCode = err.code || null;
         break;
       }
     }
@@ -59,23 +61,30 @@ async function createEvents({ schedules, createEvent, readMonth, assignments, on
 
   // Check the calendar itself, not just the device's answers: every bell
   // created should now be on its day, at its time, with its title.
+  // If the check itself can't be done, say so rather than lose the count of
+  // what was created.
   const missing = [];
+  let verifyError = null;
   if (created.length > 0 && readMonth) {
     onProgress({ type: "verify" });
     const months = new Map();
-    for (const { date, event } of created) {
-      const key = date.slice(0, 7);
-      if (!months.has(key)) {
-        const [y, m] = key.split("-").map(Number);
-        months.set(key, await readMonth(y, m));
+    try {
+      for (const { date, event } of created) {
+        const key = date.slice(0, 7);
+        if (!months.has(key)) {
+          const [y, m] = key.split("-").map(Number);
+          months.set(key, await readMonth(y, m));
+        }
+        const day = months.get(key).days.find((d) => d.date === date && d.inMonth);
+        const found = day && day.events.some((e) => e.start === event.start && e.title === event.title);
+        if (!found) missing.push(`${date} ${event.start} ${event.title}`);
       }
-      const day = months.get(key).days.find((d) => d.date === date && d.inMonth);
-      const found = day && day.events.some((e) => e.start === event.start && e.title === event.title);
-      if (!found) missing.push(`${date} ${event.start} ${event.title}`);
+    } catch (err) {
+      verifyError = err;
     }
   }
 
-  return { succeeded, totalEvents, haltedOn, missing };
+  return { succeeded, totalEvents, haltedOn, haltCode, missing, verifyError };
 }
 
 module.exports = { createEvents };

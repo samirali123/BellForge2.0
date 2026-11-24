@@ -18,36 +18,67 @@ times, colors and device address. See "Adding a new school" below.
 
 1. Open BellForge and choose your school. BellForge checks the calendar
    device is reachable (you need to be on that school's network or VPN),
-   then opens the calendar's own login page in a small window.
+   then opens the calendar's own login page in a small window. Next time,
+   BellForge remembers the school and opens its login straight away
+   (**Change** next to the school's name picks another).
 2. Log in there as usual. BellForge keeps the login session that page
    creates and never sees the password. If the login expires while you're
    working, the login window opens again and the task carries on.
-3. Choose what to do:
-   - **Calendar**: see any month, each day's bells, and delete bells.
-   - **Single day** or **Date range**: put a schedule type on dates.
-   - **New schedule type** and **My schedules**: build your own types.
+3. The calendar opens on the current month, with today selected. From
+   there:
+   - Click a day to see its bells, delete them, or **Apply schedule…** to it.
+   - **Add bells** (top right) has **Single day**, **Date range**, **New
+     schedule type** and **My schedules**. Each opens in a panel over the
+     calendar; close it (or press Esc) to go back.
 
 Every bell is created at the school's chosen audio file, zone, and color,
 then BellForge re-reads the calendar to confirm each one is really there.
+
+## The job queue
+
 The device handles one request at a time, about 15 seconds per bell, so
-keep BellForge open until a run finishes.
+creating and deleting run in the background as **jobs**, one after another
+in the order they were added. You can keep browsing months and queue more
+work meanwhile; changing month waits at most for the one bell being sent.
+
+- The **jobs button** in the top bar (it appears with the first job) shows
+  overall progress. Click it for the list: what's running, what's waiting
+  (each can be cancelled before it starts), and what finished.
+- A **notice** in the top right says when a job is done or stopped, with a
+  link to the day. If BellForge isn't the window in front, a system
+  notification is shown too.
+- Days with a job waiting get a dot, and bells waiting to be deleted are
+  struck through and can't be picked again.
+- A job that fails stops where it is and says what was and wasn't done;
+  the jobs after it still run. If the calendar can't be reached or the login
+  window is closed, the queue **pauses** instead, with a Resume button.
+- Quitting with jobs left asks first. Jobs only exist while BellForge is
+  open (the login is kept in memory only).
+
+When a schedule is applied to a day that already has bells, the review says
+so: the new bells are added alongside the old ones, not in their place.
 
 ## Calendar: viewing and deleting bells
 
-Choose **Calendar** to open the current month. Each day shows how many
-bells it has and a small timeline of them in their calendar colors. Use the
-arrows to change month, **Today** to jump back, and **Refresh** to re-read.
+Each day shows how many bells it has and a small timeline of them in
+their calendar colors. Use the arrows to change month, **Today** to jump
+back, and **Refresh** to re-read.
 
-Click a day to see its bells, with a larger timeline (and a line at the
-current time when it's today). Today's bells are marked **Rang** or **Later
-today**.
+Click a day to see its bells on the right, with a larger timeline (and a
+line at the current time when it's today). Today's bells are marked
+**Rang** or **Later today**.
+
+To put one schedule on several days, Shift-click a second day to pick every
+weekday in between, or Ctrl-click (Cmd-click on Mac) to add or remove single
+days, weekends included. Then **Apply schedule…**.
 
 To delete, tick the bells (or **Select all**), then **Delete selected**. A
 confirmation lists exactly what will be removed. If any of them are later
 today and haven't rung yet, it warns that they won't ring today, and Delete
-stays locked until you tick "I understand". After deleting, the month is
-re-read to check they're really gone. If a delete fails, BellForge stops
-there and says which bells were and weren't deleted.
+stays locked until you tick "I understand". The delete then goes into the
+job queue. Afterward the month is re-read to check they're really gone. If
+a delete fails, the job stops there and says which bells were and weren't
+deleted.
 
 Repeating bells are shown but can't be deleted from BellForge (the
 calendar's delete for those may remove the whole series).
@@ -89,7 +120,16 @@ npm install
 npm start
 ```
 
-The engine has no dependencies of its own. `npm install` in `app/` also
+If `npm start` says "Electron failed to install correctly", Electron's
+download didn't finish unpacking (seen on Windows with Node 26). `npm
+install` now repairs that itself (`tools/ensure-electron.js`); to do it by
+hand on Windows, unpack `electron-v<version>-win32-x64.zip` from
+`%LOCALAPPDATA%\electron\Cache` into `app\node_modules\electron\dist`
+with `Expand-Archive`, then write `electron.exe` (no newline) to
+`app\node_modules\electron\path.txt`.
+
+The engine has no dependencies of its own. `npm test` (from the repo root)
+runs the job queue and device-lock tests, with the device faked. `npm install` in `app/` also
 renames the development copy of Electron to BellForge on macOS
 (`tools/brand-dev-electron.js`).
 
@@ -124,7 +164,7 @@ BellForge2.0/
 │   └── schedule-csv.js        CSV import for the builder
 ├── schools/
 │   └── odea/
-│       ├── school.json        { id, name, platform }
+│       ├── school.json        { id, name, platform, accent, accentDark }
 │       ├── schedules.json     bell times for every schedule type, plus menu order
 │       ├── schedules.notes.md where those bell times came from
 │       ├── schedule-import-template.csv
@@ -138,7 +178,12 @@ BellForge2.0/
 ## Adding a new school
 
 1. Copy `schools/odea/` to `schools/<new-school-id>/` and set `id` (the
-   folder name) and `name` in `school.json`.
+   folder name) and `name` in `school.json`. Set `accent` to the school's
+   color (a hex value like `"#7a1f2b"`); BellForge's buttons, links and
+   highlights take it on once the school is chosen. `accentDark` is
+   optional, for a brighter version in dark mode. Hover shades, and white
+   or dark text on buttons, are worked out from it (`app/renderer/accent.js`)
+   so every pairing stays readable.
 2. In `config.js`, set the device address (`cyberDataHost`), the calendar
    URL, and the audio file. The audio choices are on any bell's edit page
    in the calendar.
@@ -156,9 +201,17 @@ A school on a different bell platform needs its own
 ## Releases
 
 1. Bump `"version"` in `app/package.json`.
-2. `git tag v2.0.1 && git push origin v2.0.1`
-3. GitHub Actions builds the Mac and Windows installers and creates a
-   **draft** release. Review it, then publish. The repo is private, so send
+2. Write the release notes in `docs/releases/v2.0.1.md` (same layout as the
+   earlier ones there: a one-line summary, then New, Changed, Installing).
+3. `git tag v2.0.1 && git push origin v2.0.1`
+4. GitHub Actions builds the Mac and Windows installers and creates a
+   **draft** release with those notes. Review it, then publish.
+
+   Instead of pushing a tag (steps 3 and 4), you can open **Actions →
+   Build installers → Run workflow**, pick the branch, and type the version
+   (`v2.0.1`). That makes the same draft release from that branch, and
+   GitHub creates the tag when you publish it. Either way, the version must
+   match `app/package.json` or the run stops. The repo is private, so send
    clients the installers directly.
 
 Installers are unsigned. On Windows, SmartScreen asks once ("More info",

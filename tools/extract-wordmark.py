@@ -7,6 +7,14 @@ any surface:
   branding/logo/bellforge-logo-on-light.png   dark "Bell", for light themes
   branding/logo/bellforge-logo-on-dark.png    white "Bell", for dark themes
 
+It also writes the wordmark on its own (no bell), which the splash screen
+animates separately from the bell (the bell itself is the SVG icon):
+
+  branding/logo/bellforge-wordmark-on-light.png
+  branding/logo/bellforge-wordmark-on-dark.png
+
+Copy all four into app/renderer/assets/ after running.
+
 Run from the repo root:  python3 tools/extract-wordmark.py
 Needs Pillow. If a vector (SVG) export of the lockup becomes available,
 use that instead; this is a stand-in cut from the 2560px board PNG.
@@ -23,6 +31,7 @@ LOCKUPS = [
     ((160, 360, 1450, 820), "branding/logo/bellforge-logo-on-light.png"),
     ((1600, 360, 2420, 820), "branding/logo/bellforge-logo-on-dark.png"),
 ]
+MIN_GAP = 20  # px of empty columns that separate the bell from the wordmark
 
 
 def color_to_alpha(px, bg):
@@ -67,3 +76,21 @@ for region, out in LOCKUPS:
             dst[x, y] = color_to_alpha(src[x, y], bg)
     result.save(out)
     print(f"wrote {out} ({result.width}x{result.height}, background {bg} made transparent)")
+
+    # The wordmark starts after the first wide run of empty columns (the
+    # space between the bell and "BellForge").
+    alpha = result.getchannel("A").load()
+    empty = [all(alpha[x, y] < 8 for y in range(result.height)) for x in range(result.width)]
+    run, start = 0, None
+    for x, e in enumerate(empty):
+        run = run + 1 if e else 0
+        if run >= MIN_GAP and start is None and any(not v for v in empty[:x]):
+            start = x + 1
+        if start is not None and not e:
+            start = x
+            break
+    word = result.crop((start, 0, result.width, result.height))
+    word = word.crop(word.getbbox())
+    word_out = out.replace("-logo-", "-wordmark-")
+    word.save(word_out)
+    print(f"wrote {word_out} ({word.width}x{word.height})")

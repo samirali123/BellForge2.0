@@ -13,6 +13,9 @@ setup, and the full project layout. This file is a map of this folder.
   the device's login page. Throws a `NotLoggedInError` when the session
   has expired so the app can ask for a new login and retry. Contains no
   school's data itself.
+- **`job-queue.js`** — runs creates and deletes one at a time in the
+  background, in order; pauses when the device can't be reached or the
+  login is abandoned. Tested in `test/job-queue.test.js` (`npm test`).
 - **`create-events.js`** — the creation loop: creates every bell for a list
   of dates, halts on the first failure, then re-reads the calendar to
   confirm each created bell is there.

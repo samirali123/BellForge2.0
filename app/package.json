@@ -1,13 +1,13 @@
 {
   "name": "bellforge-app",
   "productName": "BellForge",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "Desktop launcher for the CyberData bell schedule automation",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "postinstall": "node ../tools/brand-dev-electron.js",
+    "postinstall": "node ../tools/ensure-electron.js && node ../tools/brand-dev-electron.js",
     "dist": "electron-builder --publish never",
     "dist:mac": "electron-builder --mac --publish never",
     "dist:win": "electron-builder --win --publish never"
@@ -39,7 +39,8 @@
         "filter": [
           "**/*",
           "!PROJECT_SPEC.md",
-          "!README.md"
+          "!README.md",
+          "!test/**"
         ]
       },
       {

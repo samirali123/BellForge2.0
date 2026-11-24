@@ -6,7 +6,7 @@
 // connecting (and again if the login expires); BellForge keeps the session
 // it gets from that page and never sees the password.
 
-const { app, BrowserWindow, ipcMain, dialog, nativeTheme, session } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, nativeTheme, session, Notification } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const net = require("net");
@@ -22,6 +22,7 @@ function resourcePath(...parts) {
 
 const { listSchools, loadSchool } = require(resourcePath("engine", "school-loader"));
 const { createEvents } = require(resourcePath("engine", "create-events"));
+const { JobQueue } = require(resourcePath("engine", "job-queue"));
 const { validateBlock, validateSchedule, expandBlocks } = require(resourcePath("engine", "schedule-expand"));
 const { normalizeBlock, saveCustomSchedule, deleteCustomSchedule } = require(
   resourcePath("engine", "custom-schedules")
@@ -45,13 +46,21 @@ function createWindow() {
     app.dock.setIcon(DEV_ICON);
   }
 
+  // Sized for the calendar, which is the home screen. The login card sits
+  // centered in it.
+  const { width: sw, height: sh } = require("electron").screen.getPrimaryDisplay().workAreaSize;
   mainWindow = new BrowserWindow({
-    width: 480,
-    height: 680,
-    minWidth: 420,
-    minHeight: 520,
+    width: Math.min(1180, sw),
+    height: Math.min(800, sh),
+    minWidth: 720,
+    minHeight: 560,
     resizable: true,
     title: "BellForge",
+    // Shown once the page has drawn its first frame (the splash), not
+    // before, so the window never opens blank or on a half-drawn page. The
+    // background matches the splash for the moment before that.
+    show: false,
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#2b2522" : "#fffdf9",
     ...(!app.isPackaged && fs.existsSync(DEV_ICON) ? { icon: DEV_ICON } : {}),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -59,7 +68,26 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+  mainWindow.once("ready-to-show", () => mainWindow.show());
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
+
+  // Jobs only live as long as BellForge does (the login is kept in memory
+  // only), so quitting with work left asks first.
+  mainWindow.on("close", (e) => {
+    const left = queue.active.length;
+    if (left === 0) return;
+    const choice = dialog.showMessageBoxSync(mainWindow, {
+      type: "warning",
+      buttons: ["Keep BellForge open", "Quit anyway"],
+      defaultId: 0,
+      cancelId: 0,
+      message: `${plural(left, "job")} ${left === 1 ? "hasn't" : "haven't"} finished.`,
+      detail:
+        "Quitting stops them. Bells already created or deleted stay that way; " +
+        "the rest won't be. Open BellForge again to see where each day was left.",
+    });
+    if (choice === 0) e.preventDefault();
+  });
 }
 
 // --- appearance -----------------------------------------------------------
@@ -86,6 +114,18 @@ function writeSettings(settings) {
 }
 
 ipcMain.handle("get-theme", () => nativeTheme.themeSource);
+
+// The school last logged in to, so its login opens straight away next time.
+ipcMain.handle("get-last-school", () => readSettings().lastSchool || null);
+ipcMain.handle("forget-last-school", () => {
+  try {
+    const { lastSchool, ...rest } = readSettings();
+    writeSettings(rest);
+  } catch {
+    // Nothing remembered is fine.
+  }
+  return { ok: true };
+});
 
 ipcMain.handle("set-theme", (event, { theme }) => {
   if (!THEMES.includes(theme)) return { ok: false };
@@ -209,7 +249,8 @@ function showLoginWindow(config, reason) {
       }
     }, 500);
 
-    const closedError = new Error("The calendar login was closed before logging in.");
+    // LOGIN_CLOSED pauses the job queue: every waiting job needs the login.
+    const closedError = Object.assign(new Error("The calendar login was closed before logging in."), { code: "LOGIN_CLOSED" });
     loginWindow.on("closed", () => finish(closedError));
     // Closing the window mid-load also rejects loadURL; give "closed" a
     // moment so that case reads as a closed login, not a load failure.
@@ -239,8 +280,16 @@ async function withLogin(fn) {
 
 // --- IPC handlers --------------------------------------------------------
 
+// The accent colors go to the renderer as soon as a school is picked, so
+// the app takes on the school's color before the login finishes.
+const hexOrNull = (v) => (typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v) ? v : null);
 ipcMain.handle("list-schools", () => {
-  return listSchools().map((s) => ({ id: s.id, name: s.name }));
+  return listSchools().map((s) => ({
+    id: s.id,
+    name: s.name,
+    accent: hexOrNull(s.accent),
+    accentDark: hexOrNull(s.accentDark),
+  }));
 });
 
 ipcMain.handle("check-reachable", async (event, { schoolId }) => {
@@ -290,6 +339,12 @@ ipcMain.handle("connect", async (event, { schoolId }) => {
       // New schedules use the calendar's own color labels.
       colorKeys: loaded.pickerColors,
     };
+
+    try {
+      writeSettings({ ...readSettings(), lastSchool: schoolId });
+    } catch {
+      // Not remembering the school only means choosing it again next time.
+    }
 
     sendStatus("Connected.");
     return { ok: true };
@@ -424,36 +479,11 @@ function reloadSchedules() {
   currentSession.warnings = reloaded.warnings;
 }
 
-ipcMain.handle("create-events", async (event, { assignments }) => {
-  if (!currentSession) return { ok: false, error: "Not connected to a school yet." };
-  if (!Array.isArray(assignments) || assignments.length === 0) {
-    return { ok: false, error: "Nothing to create." };
-  }
+// --- calendar: read bells ----------------------------------------------------
+// The renderer can only delete bells it was shown: each delete is checked
+// against the bells from the latest read of that month, so a stale screen
+// or a bad message can't delete an arbitrary id.
 
-  const sendProgress = (p) => event.sender.send("create-progress", p);
-
-  try {
-    const { engine } = currentSession;
-    const { succeeded, totalEvents, haltedOn, missing } = await createEvents({
-      schedules: currentSession.schedules,
-      createEvent: (ev, date) => withLogin(() => engine.createEvent(ev, date)),
-      readMonth: (y, m) => withLogin(() => engine.readMonth(y, m)),
-      assignments,
-      onProgress: sendProgress,
-    });
-    return { ok: !haltedOn && missing.length === 0, succeeded, totalEvents, haltedOn, missing };
-  } catch (err) {
-    return { ok: false, error: err.message };
-  }
-});
-
-// --- calendar: read and delete bells ---------------------------------------
-// One calendar action at a time. The renderer can only delete bells it was
-// shown: each
-// delete request is checked against the bells from the latest read of that
-// month, so a stale screen or a bad message can't delete an arbitrary id.
-
-let calendarBusy = false;
 const knownBells = new Map(); // "YYYY-MM" -> Map("date#id" -> bell)
 
 function rememberMonth(monthData) {
@@ -466,84 +496,225 @@ function rememberMonth(monthData) {
   knownBells.set(key, bells);
 }
 
-async function withCalendar(fn) {
+// Reads aren't queued behind jobs: the engine serves them first, between
+// two of a job's requests.
+ipcMain.handle("read-month", async (event, { year, month }) => {
   if (!currentSession) return { ok: false, error: "Not connected to a school yet." };
-  if (calendarBusy) return { ok: false, error: "Still working on the last calendar action." };
-  calendarBusy = true;
-  try {
-    return await fn();
-  } catch (err) {
-    return { ok: false, error: err.message.split("\n")[0] };
-  } finally {
-    calendarBusy = false;
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+    return { ok: false, error: "That isn't a valid month." };
   }
-}
-
-ipcMain.handle("read-month", (event, { year, month }) =>
-  withCalendar(async () => {
-    if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
-      return { ok: false, error: "That isn't a valid month." };
-    }
+  try {
     const data = await withLogin(() => currentSession.engine.readMonth(year, month));
     rememberMonth(data);
     return { ok: true, ...data };
-  })
-);
-
-ipcMain.handle("delete-events", (event, { bells }) =>
-  withCalendar(async () => {
-    if (!Array.isArray(bells) || bells.length === 0) return { ok: false, error: "No bells selected." };
-
-    const toDelete = [];
-    for (const { date, id } of bells) {
-      const known = knownBells.get(String(date).slice(0, 7));
-      const bell = known && known.get(`${date}#${id}`);
-      if (!bell) return { ok: false, error: "The bell list is out of date. Refresh the month and try again." };
-      if (!bell.deletable || bell.repeating) {
-        return { ok: false, error: `${bell.start} ${bell.title} can't be deleted from here.` };
-      }
-      toDelete.push(bell);
-    }
-
-    const onProgress = (p) => event.sender.send("delete-progress", p);
-    let result;
-    try {
-      result = await currentSession.engine.deleteEvents(toDelete, { onProgress });
-    } catch (err) {
-      if (err.code !== "NOT_LOGGED_IN") throw err;
-      // Logged out partway: log in again and carry on with the bells that
-      // weren't deleted yet, so none is sent twice.
-      const done = err.deleted || [];
-      currentSession.engine.setSession(
-        await showLoginWindow(currentSession.config, "Your calendar login expired. Log in again to continue.")
-      );
-      const rest = toDelete.filter((b) => !done.includes(b));
-      result = await currentSession.engine.deleteEvents(rest, { onProgress });
-      result.deleted = [...done, ...result.deleted];
-    }
-    for (const monthData of Object.values(result.months)) rememberMonth(monthData);
-
-    return {
-      ok: !result.failed && result.stillThere.length === 0,
-      requested: toDelete.length,
-      deleted: result.deleted.length - result.stillThere.length,
-      failed: result.failed && { start: result.failed.event.start, title: result.failed.event.title, status: result.failed.status },
-      stillThere: result.stillThere.map((b) => `${b.start} ${b.title}`),
-      months: result.months,
-    };
-  })
-);
-
-// The month grid needs more room than the connect/schedule screens. Grows
-// the window once when the calendar opens; never shrinks it.
-ipcMain.handle("fit-calendar", () => {
-  if (!mainWindow) return;
-  const [w, h] = mainWindow.getSize();
-  const { width: sw, height: sh } = require("electron").screen.getDisplayMatching(mainWindow.getBounds()).workArea;
-  const nw = Math.min(Math.max(w, 760), sw);
-  const nh = Math.min(Math.max(h, 820), sh);
-  if (nw !== w || nh !== h) {
-    mainWindow.setSize(nw, nh, true);
-    mainWindow.center();
+  } catch (err) {
+    return { ok: false, error: err.message.split("\n")[0] };
   }
+});
+
+// --- job queue: creating and deleting in the background ------------------------
+// Creates and deletes are jobs (engine/job-queue.js), run one at a time while
+// the person keeps working. The screen gets the whole queue on every change.
+
+const queue = new JobQueue();
+queue.on("update", () => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("jobs-update", queue.snapshot());
+});
+queue.on("finished", (job) => {
+  // The in-app notice covers it when BellForge is in front.
+  if (!Notification.isSupported() || !mainWindow || mainWindow.isDestroyed() || mainWindow.isFocused()) return;
+  const n = new Notification({
+    title: job.result.ok ? `Done: ${job.label}` : `Stopped: ${job.label}`,
+    body: job.result.summary,
+  });
+  n.on("click", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+  n.show();
+});
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// "2026-11-24" -> "Tue, Nov 24"
+function shortDate(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return `${DAY_NAMES[new Date(y, m - 1, d).getDay()]}, ${MONTH_NAMES[m - 1]} ${d}`;
+}
+const onDays = (dates) => (dates.length === 1 ? `on ${shortDate(dates[0])}` : `on ${plural(dates.length, "day")}`);
+
+ipcMain.handle("get-jobs", () => queue.snapshot());
+ipcMain.handle("cancel-job", (event, { id }) => ({ ok: queue.cancel(id) }));
+ipcMain.handle("resume-jobs", () => {
+  queue.resume();
+  return { ok: true };
+});
+ipcMain.handle("clear-finished-jobs", () => {
+  queue.clearFinished();
+  return { ok: true };
+});
+
+ipcMain.handle("queue-create", (event, { assignments }) => {
+  if (!currentSession) return { ok: false, error: "Not connected to a school yet." };
+  if (!Array.isArray(assignments) || assignments.length === 0) return { ok: false, error: "Nothing to create." };
+  for (const a of assignments) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(a.date)) || !currentSession.schedules[a.scheduleKey]) {
+      return { ok: false, error: "That schedule or date isn't valid any more. Choose them again." };
+    }
+  }
+
+  // The job keeps its own copy of the schedules, so editing or deleting a
+  // schedule type while it waits doesn't change what it creates.
+  const schedules = {};
+  for (const { scheduleKey } of assignments) schedules[scheduleKey] = currentSession.schedules[scheduleKey];
+  const total = assignments.reduce((sum, a) => sum + schedules[a.scheduleKey].events.length, 0);
+  const dates = assignments.map((a) => a.date);
+  const labels = [...new Set(assignments.map((a) => schedules[a.scheduleKey].label))];
+  const label = `${labels.length === 1 ? labels[0] : "Bells"} ${onDays(dates)}`;
+  const { engine } = currentSession;
+
+  const job = queue.add({
+    kind: "create",
+    label,
+    dates,
+    total,
+    meta: { assignments: assignments.map(({ date, scheduleKey }) => ({ date, scheduleKey, label: schedules[scheduleKey].label, count: schedules[scheduleKey].events.length })) },
+    run: async (job, report) => {
+      const r = await createEvents({
+        schedules,
+        createEvent: (ev, date) => withLogin(() => engine.createEvent(ev, date)),
+        readMonth: (y, m) => withLogin(() => engine.readMonth(y, m, { lane: "job" })),
+        assignments,
+        onProgress: (p) => {
+          if (p.type === "date-start") report({ line: `${shortDate(p.date)}: ${p.label}` });
+          if (p.type === "event-start") {
+            const text = `Creating ${p.overallIndex} of ${p.totalEvents}: ${p.event.start} ${p.event.title}`;
+            report({ text, line: text });
+          }
+          if (p.type === "event-ok") report({ done: p.overallIndex });
+          if (p.type === "event-fail") report({ line: `Failed: ${p.error}` });
+          if (p.type === "verify") report({ text: "Checking the calendar", line: "Checking the calendar..." });
+        },
+      });
+      const where = onDays(dates);
+      if (r.haltedOn) {
+        return {
+          ok: false,
+          code: r.haltCode,
+          summary: `Stopped at ${r.haltedOn}. Created ${r.succeeded} of ${r.totalEvents} bells ${where}.`,
+        };
+      }
+      if (r.verifyError) {
+        return {
+          ok: false,
+          code: r.verifyError.code,
+          summary: `Created ${plural(r.succeeded, "bell")} ${where}, but couldn't check the calendar afterward (${r.verifyError.message})`,
+        };
+      }
+      if (r.missing.length > 0) {
+        return {
+          ok: false,
+          summary: `Created ${plural(r.succeeded, "bell")} ${where}, but ${plural(r.missing.length, "bell")} didn't show on the calendar afterward: ${r.missing.join(", ")}.`,
+        };
+      }
+      return { ok: true, summary: `Created ${plural(r.totalEvents, "bell")} ${where}.` };
+    },
+  });
+  return { ok: true, jobId: job.id };
+});
+
+// Bells waiting in (or being sent by) a delete job, as "date#id".
+function bellsBeingDeleted() {
+  return new Set(
+    queue.active.filter((j) => j.kind === "delete").flatMap((j) => j.meta.bells.map((b) => `${b.date}#${b.id}`))
+  );
+}
+
+ipcMain.handle("queue-delete", (event, { bells }) => {
+  if (!currentSession) return { ok: false, error: "Not connected to a school yet." };
+  if (!Array.isArray(bells) || bells.length === 0) return { ok: false, error: "No bells selected." };
+
+  // Checked now, when it's added, against what the screen was showing.
+  const pending = bellsBeingDeleted();
+  const toDelete = [];
+  for (const { date, id } of bells) {
+    const known = knownBells.get(String(date).slice(0, 7));
+    const bell = known && known.get(`${date}#${id}`);
+    if (!bell) return { ok: false, error: "The bell list is out of date. Refresh the month and try again." };
+    if (!bell.deletable || bell.repeating) {
+      return { ok: false, error: `${bell.start} ${bell.title} can't be deleted from here.` };
+    }
+    if (pending.has(`${date}#${id}`)) return { ok: false, error: `${bell.start} ${bell.title} is already waiting to be deleted.` };
+    toDelete.push(bell);
+  }
+
+  const n = toDelete.length;
+  const dates = toDelete.map((b) => b.date);
+  const where = [...new Set(dates)].length === 1 ? `from ${shortDate(dates[0])}` : `from ${plural(new Set(dates).size, "day")}`;
+  const { engine, config } = currentSession;
+
+  const job = queue.add({
+    kind: "delete",
+    label: `Delete ${plural(n, "bell")} ${where}`,
+    dates,
+    total: n,
+    meta: { bells: toDelete.map(({ date, id, start, title }) => ({ date, id, start, title })) },
+    run: async (job, report) => {
+      const onProgress = (p) => {
+        if (p.type === "start") {
+          const text = `Deleting ${p.index} of ${p.total}: ${p.event.start} ${p.event.title}`;
+          report({ done: p.index - 1, text, line: text });
+        }
+        if (p.type === "ok") report({ done: p.index });
+        if (p.type === "fail") report({ line: `Failed: the calendar answered ${p.status}` });
+        if (p.type === "verify") report({ text: "Checking the calendar", line: "Checking the calendar..." });
+      };
+
+      let result;
+      let done = [];
+      try {
+        try {
+          result = await engine.deleteEvents(toDelete, { onProgress });
+        } catch (err) {
+          if (err.code !== "NOT_LOGGED_IN") throw err;
+          // Logged out partway: log in again and carry on with the bells that
+          // weren't deleted yet, so none is sent twice.
+          done = err.deleted || [];
+          engine.setSession(await showLoginWindow(config, "Your calendar login expired. Log in again to continue."));
+          const rest = toDelete.filter((b) => !done.includes(b));
+          result = await engine.deleteEvents(rest, { onProgress });
+          result.deleted = [...done, ...result.deleted];
+        }
+      } catch (err) {
+        const sent = (err.deleted || []).length + done.length;
+        return {
+          ok: false,
+          code: err.code,
+          summary: `Stopped after deleting ${sent} of ${n} bells ${where}. ${err.message}`,
+        };
+      }
+      for (const monthData of Object.values(result.months)) rememberMonth(monthData);
+
+      const deleted = result.deleted.length - result.stillThere.length;
+      if (result.failed) {
+        return {
+          ok: false,
+          summary:
+            `Stopped after deleting ${deleted} of ${n} bells ${where}. ` +
+            `${result.failed.event.start} ${result.failed.event.title} wasn't deleted (the calendar answered ${result.failed.status}).`,
+        };
+      }
+      if (result.stillThere.length > 0) {
+        return {
+          ok: false,
+          summary: `These still show on the calendar: ${result.stillThere.map((b) => `${b.start} ${b.title}`).join(", ")}.`,
+        };
+      }
+      return { ok: true, summary: `Deleted ${plural(deleted, "bell")} ${where}.` };
+    },
+  });
+  return { ok: true, jobId: job.id };
 });

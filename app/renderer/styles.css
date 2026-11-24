@@ -1,3 +1,6 @@
+/* Every color, space, radius and font size used below comes from these
+   tokens. Component rules never use a literal color, so both themes and
+   every school's accent stay consistent. */
 :root {
   color-scheme: light dark;
 
@@ -9,46 +12,75 @@
   --space-5: 24px;
   --space-6: 32px;
 
+  /* Corner radius: xs for tiny marks, sm for tags and tracks, the default
+     for controls and callouts, lg for panels, card for the main card. */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-card: 16px;
+  --radius-pill: 999px;
+
+  /* Type scale. */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+
   --bg: #f4f4f6;
   --card-bg: #ffffff;
   --text: #1a1a1e;
   --muted: #64646d;
   --border: #e2e2e7;
-  --accent: #7a1f2b;
   --danger: #c0392b;
   --danger-bg: #fdecea;
+  --on-danger: #ffffff;
   --ok: #17703d;
   --ok-bg: rgba(31, 138, 76, 0.12);
   --warn: #7a5000;
   --warn-bg: rgba(212, 167, 44, 0.18);
+  --gold: #d4a72c;
+  /* A faint ring that keeps dark bells visible on dark strips. */
+  --mark-ring: transparent;
 
-  /* Text-colored links (Back, Get CSV template). Separate from --accent,
-     which is a button fill: the dark-mode accent is too dark to read as
-     text on the dark background. */
-  --link: var(--accent);
+  /* The accent comes from the chosen school (accent.js sets the
+     --school-* properties from school.json). Until a school is chosen,
+     BellForge's own ember is used. --accent and --accent-2 are the two
+     ends of the button gradient; --on-accent is the text on them and
+     passes AA on both. --link is accent-colored text on the page. */
+  --accent: var(--school-accent, #a63c0a);
+  --accent-2: var(--school-accent-2, #c1552b);
+  --accent-hover: var(--school-accent-hover, #952c00);
+  --accent-2-hover: var(--school-accent-2-hover, #b04619);
+  --on-accent: var(--school-on-accent, #ffffff);
+  --link: var(--school-link, #a63c0a);
 
-  /* Surface treatment. One gradient direction and palette for every
-     primary action; one glass recipe for the main panel. White text is
-     checked against the lightest stop of each gradient (AA), and text on
-     the glass is checked where the backdrop is most saturated. */
-  --gradient-primary: linear-gradient(135deg, #7a1f2b 0%, #a8343f 100%);
-  --gradient-primary-hover: linear-gradient(135deg, #641822 0%, #922c36 100%);
+  /* Brand surfaces for the splash, from the BellForge palette. */
+  --splash-bg: #fffdf9;
+  --brand-ember: #f0601a;
+  --brand-gold: #ffb43b;
+
+  /* Surface treatment. One gradient direction for every primary action;
+     one glass recipe for the main panel. */
+  --gradient-primary: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  --gradient-primary-hover: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent-2-hover) 100%);
   --gradient-danger: linear-gradient(135deg, #c0392b 0%, #a52f23 100%);
   --gradient-danger-hover: linear-gradient(135deg, #a52f23 0%, #8e271d 100%);
-  --glow-primary: 0 4px 14px rgba(122, 31, 43, 0.28);
-  --glow-primary-hover: 0 6px 20px rgba(122, 31, 43, 0.38);
-  --glow-danger: 0 4px 14px rgba(192, 57, 43, 0.3);
-  --glow-card: 0 0 0 3px rgba(122, 31, 43, 0.12);
+  --glow-primary: 0 4px 14px color-mix(in srgb, var(--accent) 28%, transparent);
+  --glow-primary-hover: 0 6px 20px color-mix(in srgb, var(--accent) 38%, transparent);
+  --glow-danger: 0 4px 14px color-mix(in srgb, var(--danger) 30%, transparent);
+  --glow-card: 0 0 0 3px color-mix(in srgb, var(--link) 14%, transparent);
 
   --backdrop:
-    radial-gradient(circle at 12% 8%, rgba(122, 31, 43, 0.22), transparent 42%),
-    radial-gradient(circle at 88% 92%, rgba(212, 167, 44, 0.24), transparent 48%),
+    radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 42%),
+    radial-gradient(circle at 88% 92%, color-mix(in srgb, var(--gold) 24%, transparent), transparent 48%),
     var(--bg);
   --glass-bg: rgba(255, 255, 255, 0.68);
   --glass-border: rgba(255, 255, 255, 0.75);
   --glass-shadow: 0 8px 32px rgba(40, 20, 30, 0.1);
   --glass-blur: blur(24px) saturate(160%);
-  --radius-card: 16px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -58,24 +90,31 @@
     --text: #eceef0;
     --muted: #97979f;
     --border: #303038;
-    --accent: #b0333f;
     --danger: #e57368;
     --danger-bg: #3a1f1d;
     --ok: #4ecb84;
-    --link: #e0707a;
+    --ok-bg: rgba(78, 203, 132, 0.14);
     --warn: #e8c35a;
     --warn-bg: rgba(212, 167, 44, 0.14);
+    --mark-ring: rgba(255, 255, 255, 0.28);
 
-    --gradient-primary: linear-gradient(135deg, #a12d39 0%, #c4404b 100%);
-    --gradient-primary-hover: linear-gradient(135deg, #8f2632 0%, #b03a44 100%);
-    --glow-primary: 0 4px 16px rgba(196, 64, 75, 0.32);
-    --glow-primary-hover: 0 6px 22px rgba(196, 64, 75, 0.45);
+    --accent: var(--school-accent-dark, #b8430c);
+    --accent-2: var(--school-accent-2-dark, #c6501f);
+    --accent-hover: var(--school-accent-hover-dark, #a73300);
+    --accent-2-hover: var(--school-accent-2-hover-dark, #b54005);
+    --on-accent: var(--school-on-accent-dark, #ffffff);
+    --link: var(--school-link-dark, #f77c4f);
+
+    --splash-bg: #2b2522;
+
+    --glow-primary: 0 4px 16px color-mix(in srgb, var(--accent-2) 32%, transparent);
+    --glow-primary-hover: 0 6px 22px color-mix(in srgb, var(--accent-2) 45%, transparent);
     --glow-danger: 0 4px 16px rgba(192, 57, 43, 0.35);
-    --glow-card: 0 0 0 3px rgba(224, 112, 122, 0.16);
+    --glow-card: 0 0 0 3px color-mix(in srgb, var(--link) 16%, transparent);
 
     --backdrop:
-      radial-gradient(circle at 12% 8%, rgba(176, 51, 63, 0.24), transparent 42%),
-      radial-gradient(circle at 88% 92%, rgba(212, 167, 44, 0.16), transparent 48%),
+      radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 42%),
+      radial-gradient(circle at 88% 92%, color-mix(in srgb, var(--gold) 16%, transparent), transparent 48%),
       var(--bg);
     --glass-bg: rgba(30, 30, 36, 0.62);
     --glass-border: rgba(255, 255, 255, 0.08);
@@ -101,11 +140,19 @@ body {
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Before login, the card sits in the middle of the window. */
   display: flex;
-  align-items: flex-start;
+  align-items: safe center;
   justify-content: center;
   height: 100vh;
   overflow-y: auto;
+}
+
+/* After login, the calendar fills the window edge to edge. */
+body.app-mode {
+  display: block;
+  padding: 0;
+  overflow: hidden;
 }
 
 .card {
@@ -123,12 +170,8 @@ body {
   gap: var(--space-4);
 }
 
-header {
-  margin-bottom: var(--space-1);
-}
-
 h1 {
-  font-size: 22px;
+  font-size: var(--text-xl);
   font-weight: 700;
   margin: 0;
   letter-spacing: -0.01em;
@@ -136,7 +179,7 @@ h1 {
 
 .subtitle {
   margin: var(--space-1) 0 0;
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--muted);
 }
 
@@ -144,7 +187,7 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--muted);
   font-weight: 500;
 }
@@ -152,11 +195,11 @@ h1 {
 select,
 input {
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--text-md);
   color: var(--text);
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: var(--space-3);
   outline: none;
   transition: border-color 0.15s ease;
@@ -171,21 +214,20 @@ input:focus {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--muted);
-  margin-top: calc(-1 * var(--space-2));
 }
 
 .dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--muted);
   flex-shrink: 0;
 }
 
 .network-status.checking .dot {
-  background: #d4a72c;
+  background: var(--gold);
 }
 
 .network-status.ok .dot {
@@ -211,17 +253,17 @@ input:focus {
    hover (that was turning hovered mode cards solid maroon). */
 button {
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
-  color: #fff;
+  color: var(--on-accent);
   background: var(--gradient-primary);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: var(--space-3);
   cursor: pointer;
   box-shadow: var(--glow-primary);
   transition: box-shadow 0.15s ease;
-  margin-top: var(--space-1);
+  margin: 0;
 }
 
 button:where(:hover:not(:disabled)) {
@@ -236,21 +278,21 @@ button:disabled {
 }
 
 .error {
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--danger);
   background: var(--danger-bg);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: var(--space-3);
   line-height: 1.4;
 }
 
 .log {
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-family: "SF Mono", ui-monospace, Menlo, monospace;
   color: var(--muted);
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: var(--space-3);
   max-height: 160px;
   overflow-y: auto;
@@ -281,12 +323,8 @@ button:disabled {
   gap: var(--space-4);
 }
 
-.screen[hidden] {
-  display: none;
-}
-
 .section-label {
-  font-size: 13px;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--muted);
   margin: 0;
@@ -297,10 +335,9 @@ button:disabled {
   background: none;
   border: none;
   color: var(--link);
-  font-size: 13px;
+  font-size: var(--text-base);
   font-weight: 600;
   padding: 0;
-  margin: 0;
   cursor: pointer;
   box-shadow: none;
 }
@@ -310,42 +347,13 @@ button:disabled {
   text-decoration: underline;
 }
 
-.mode-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
-}
-
-.mode-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
-  background: var(--card-bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: var(--space-4);
-  text-align: left;
-  cursor: pointer;
-  margin: 0;
-  box-shadow: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.mode-btn:hover {
-  background: var(--card-bg);
-  border-color: var(--link);
-  box-shadow: var(--glow-card);
-}
-
 .mode-title {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
 }
 
 .mode-desc {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--muted);
   font-weight: 400;
 }
@@ -365,12 +373,12 @@ button:disabled {
 .range-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--text-base);
   max-height: 320px;
   display: block;
   overflow-y: auto;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 
 .range-table tbody {
@@ -390,7 +398,7 @@ button:disabled {
 }
 
 .range-table td.range-date {
-  flex: 0 0 96px;
+  flex: 0 0 11ch;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
@@ -402,7 +410,7 @@ button:disabled {
 .range-table select {
   width: 100%;
   padding: var(--space-2);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .review-list {
@@ -412,9 +420,9 @@ button:disabled {
   max-height: 260px;
   overflow-y: auto;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: var(--space-3);
-  font-size: 13px;
+  font-size: var(--text-base);
 }
 
 .review-item {
@@ -429,7 +437,7 @@ button:disabled {
 }
 
 .review-total {
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--muted);
   margin: 0;
 }
@@ -439,10 +447,10 @@ button:disabled {
 }
 
 .progress-summary {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   padding: var(--space-3);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 
 .progress-summary.success {
@@ -455,32 +463,36 @@ button:disabled {
   background: var(--danger-bg);
 }
 
-.mode-btn.wide {
-  grid-column: 1 / -1;
-}
-
 .notice {
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--ok);
   background: var(--ok-bg);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: var(--space-3);
   line-height: 1.4;
 }
 
 .hint {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--muted);
-  margin: calc(-1 * var(--space-2)) 0 0;
+  margin: 0;
   line-height: 1.4;
+}
+
+/* A field or heading with its status line and hint: closer together than
+   the screen's own gap, so they read as one unit. */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .builder-blocks {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: var(--radius);
+  font-size: var(--text-base);
   max-height: 220px;
   overflow-y: auto;
 }
@@ -504,7 +516,7 @@ button:disabled {
 }
 
 .block-item .block-time {
-  flex: 0 0 92px;
+  flex: 0 0 13ch;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
@@ -521,9 +533,8 @@ button:disabled {
   background: none;
   box-shadow: none;
   color: var(--danger);
-  font-size: 12px;
+  font-size: var(--text-sm);
   padding: var(--space-1);
-  margin: 0;
 }
 
 .block-item .block-remove:hover {
@@ -536,8 +547,8 @@ button:disabled {
   flex-direction: column;
   gap: var(--space-3);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
 }
 
 .builder-row {
@@ -564,7 +575,7 @@ input:disabled {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--muted);
 }
 
@@ -574,7 +585,7 @@ input:disabled {
 }
 
 .field-errors {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--danger);
   line-height: 1.4;
 }
@@ -604,9 +615,8 @@ button.secondary {
   box-shadow: none;
   color: var(--text);
   border: 1px solid var(--border);
-  margin: 0;
   padding: var(--space-2) var(--space-3);
-  font-size: 13px;
+  font-size: var(--text-base);
 }
 
 button.secondary:hover:not(:disabled) {
@@ -619,9 +629,8 @@ button.link-btn {
   background: none;
   box-shadow: none;
   color: var(--link);
-  font-size: 13px;
+  font-size: var(--text-base);
   padding: 0;
-  margin: 0;
 }
 
 button.link-btn:hover:not(:disabled) {
@@ -635,11 +644,11 @@ button.link-btn:hover:not(:disabled) {
 }
 
 .block-item .block-confirm {
+  color: var(--on-danger);
   background: var(--gradient-danger);
   box-shadow: var(--glow-danger);
-  font-size: 12px;
+  font-size: var(--text-sm);
   padding: var(--space-1) var(--space-2);
-  margin: 0;
 }
 
 .block-item .block-confirm:hover:not(:disabled) {
@@ -650,9 +659,8 @@ button.link-btn:hover:not(:disabled) {
   background: none;
   box-shadow: none;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
   padding: var(--space-1);
-  margin: 0;
 }
 
 .block-item .block-cancel:hover {
@@ -675,7 +683,7 @@ button.link-btn:hover:not(:disabled) {
   gap: var(--space-1);
   padding: var(--space-1);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--card-bg);
   flex-shrink: 0;
 }
@@ -684,11 +692,10 @@ button.link-btn:hover:not(:disabled) {
   background: none;
   box-shadow: none;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 600;
   padding: var(--space-1) var(--space-2);
-  border-radius: 6px;
-  margin: 0;
+  border-radius: var(--radius-sm);
 }
 
 .segmented button:hover:not(:disabled) {
@@ -700,13 +707,13 @@ button.link-btn:hover:not(:disabled) {
 .segmented button[aria-checked="true"],
 .segmented button[aria-checked="true"]:hover:not(:disabled) {
   background: var(--gradient-primary);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .steps {
   display: flex;
   list-style: none;
-  margin: var(--space-4) 0 0;
+  margin: 0;
   padding: 0;
   gap: var(--space-2);
 }
@@ -721,7 +728,7 @@ button.link-btn:hover:not(:disabled) {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--muted);
   white-space: nowrap;
@@ -732,7 +739,7 @@ button.link-btn:hover:not(:disabled) {
 .steps li::before {
   content: "";
   height: 4px;
-  border-radius: 2px;
+  border-radius: var(--radius-pill);
   background: var(--border);
 }
 
@@ -760,19 +767,15 @@ button.link-btn:hover:not(:disabled) {
 .meter-head {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
-.meter-head #progress-pct {
-  color: var(--text);
-}
-
 .meter-track {
   height: 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-pill);
   background: var(--border);
   overflow: hidden;
 }
@@ -780,14 +783,10 @@ button.link-btn:hover:not(:disabled) {
 .meter-fill {
   width: 0;
   height: 100%;
-  border-radius: 4px;
+  border-radius: var(--radius-pill);
   background: var(--gradient-primary);
   box-shadow: var(--glow-primary);
   transition: width 0.2s ease;
-}
-
-.meter.fail #progress-count {
-  color: var(--danger);
 }
 
 .meter.fail .meter-fill {
@@ -816,11 +815,6 @@ button.link-btn:hover:not(:disabled) {
 
 /* --- calendar --------------------------------------------------------------- */
 
-/* The month grid needs more width than the other screens. */
-.card:has(#screen-calendar:not([hidden])) {
-  max-width: 720px;
-}
-
 .cal-head {
   display: flex;
   align-items: center;
@@ -829,27 +823,16 @@ button.link-btn:hover:not(:disabled) {
 
 .cal-title {
   margin: 0;
-  min-width: 152px;
-  font-size: 17px;
+  min-width: 9em;
+  font-size: var(--text-xl);
   font-weight: 700;
   text-align: center;
 }
 
 button.cal-nav {
-  margin: 0;
   padding: var(--space-1) var(--space-3);
-  font-size: 18px;
+  font-size: var(--text-xl);
   line-height: 1;
-}
-
-.cal-tools {
-  display: flex;
-  gap: var(--space-3);
-  margin-left: auto;
-}
-
-.cal-status {
-  margin: 0;
 }
 
 .cal-weekdays,
@@ -860,7 +843,7 @@ button.cal-nav {
 }
 
 .cal-weekdays {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--muted);
   text-align: center;
@@ -870,13 +853,12 @@ button.cal-day {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  min-height: 64px;
-  margin: 0;
+  min-height: 84px;
   padding: var(--space-2);
   background: var(--card-bg);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   box-shadow: none;
   font-weight: 500;
   text-align: left;
@@ -907,11 +889,11 @@ button.cal-day.out {
 
 .cal-num {
   min-width: 20px;
-  font-size: 13px;
+  font-size: var(--text-base);
   font-weight: 700;
   text-align: center;
   font-variant-numeric: tabular-nums;
-  border-radius: 10px;
+  border-radius: var(--radius-pill);
 }
 
 .cal-day.weekend .cal-num {
@@ -919,13 +901,13 @@ button.cal-day.out {
 }
 
 .cal-day.today .cal-num {
-  color: #fff;
+  color: var(--on-accent);
   background: var(--gradient-primary);
   box-shadow: var(--glow-primary);
 }
 
 .cal-count {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -940,7 +922,7 @@ button.cal-day.out {
   align-self: stretch;
   height: 12px;
   margin-top: auto;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--border) 60%, transparent);
   overflow: hidden;
 }
@@ -956,30 +938,57 @@ button.cal-day.out {
 /* --- day panel --------------------------------------------------------------- */
 
 .day-panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  flex: 0 0 380px;
+  min-width: 0;
+  overflow-y: auto;
   padding: var(--space-4);
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
+}
+
+.day-panel > .empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-base);
+}
+
+.day-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.day-head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.day-head .day-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.day-head button {
+  flex: none;
 }
 
 .day-head {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
 }
 
 .day-title {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--text-lg);
   font-weight: 700;
 }
 
 .day-count {
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--muted);
 }
 
@@ -992,7 +1001,7 @@ button.cal-day.out {
 .strip-track {
   position: relative;
   height: 32px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--border) 50%, transparent);
 }
 
@@ -1002,7 +1011,7 @@ button.cal-day.out {
   bottom: var(--space-1);
   width: 4px;
   margin-left: -2px;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
 }
 
 .strip-track .mark.selected {
@@ -1024,7 +1033,7 @@ button.cal-day.out {
 .strip-axis {
   position: relative;
   height: 14px;
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
@@ -1048,8 +1057,8 @@ button.cal-day.out {
   max-height: 320px;
   overflow-y: auto;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: var(--radius);
+  font-size: var(--text-base);
 }
 
 .bell-list .empty {
@@ -1086,7 +1095,7 @@ button.cal-day.out {
 }
 
 .bell-time {
-  flex: 0 0 44px;
+  flex: 0 0 6ch;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
@@ -1094,7 +1103,7 @@ button.cal-day.out {
 .bell-swatch {
   flex: 0 0 12px;
   height: 12px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
 }
 
 .bell-title {
@@ -1113,8 +1122,8 @@ button.cal-day.out {
 
 .bell-tag {
   padding: 0 var(--space-1);
-  border-radius: 4px;
-  font-size: 11px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--muted);
   white-space: nowrap;
@@ -1136,7 +1145,7 @@ button.cal-day.out {
 }
 
 button.danger-btn {
-  margin: 0;
+  color: var(--on-danger);
   background: var(--gradient-danger);
   box-shadow: var(--glow-danger);
 }
@@ -1151,13 +1160,13 @@ button.danger-btn:hover:not(:disabled) {
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--danger-bg);
 }
 
 .confirm-text {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   line-height: 1.4;
   color: var(--text);
@@ -1169,15 +1178,15 @@ button.danger-btn:hover:not(:disabled) {
   gap: var(--space-1) var(--space-3);
   max-height: 96px;
   overflow-y: auto;
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
 }
 
 .warning {
   padding: var(--space-3);
   border: 1px solid currentColor;
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: var(--radius);
+  font-size: var(--text-base);
   font-weight: 600;
   line-height: 1.4;
   color: var(--warn);
@@ -1194,10 +1203,6 @@ button.danger-btn:hover:not(:disabled) {
   gap: var(--space-3);
 }
 
-.confirm-actions button {
-  margin: 0;
-}
-
 .meter-pct {
   color: var(--text);
 }
@@ -1206,15 +1211,649 @@ button.danger-btn:hover:not(:disabled) {
   color: var(--danger);
 }
 
-.meter-hint {
+
+/* Dark bells (e.g. near-black M0/G0) would vanish on the dark strips; a
+   faint ring (dark mode only) keeps every bell visible without changing
+   its color. */
+.mini-strip .mark,
+.strip-track .mark {
+  box-shadow: 0 0 0 1px var(--mark-ring);
+}
+
+/* --- app layout: top bar, calendar, day panel ------------------------------ */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--glass-bg);
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  position: relative;
+  z-index: 10;
+}
+
+.topbar-brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.topbar-logo {
+  display: block;
+  height: 24px;
+  width: auto;
+}
+
+.topbar-school {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.topbar-school .link-btn {
+  font-size: var(--text-sm);
+}
+
+.topbar .cal-head {
+  flex: 1;
+  justify-content: center;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.app-notices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+}
+
+.app-notices:has(> :not([hidden])) {
+  padding-top: var(--space-4);
+}
+
+.app-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.app-body > .day-panel {
+  align-self: flex-start;
+  max-height: 100%;
+}
+
+.cal-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* The month fills the height it has; cells never shrink below their
+   minimum, and the area scrolls instead. */
+.cal-main .cal-grid {
+  flex: 1;
+  grid-auto-rows: minmax(84px, 1fr);
+}
+
+.cal-tip {
+  margin-top: var(--space-2);
+}
+
+/* Narrow windows: the day panel goes under the month. */
+@media (max-width: 900px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+  .topbar .cal-head {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .topbar-actions {
+    margin-left: auto;
+  }
+  body.app-mode {
+    overflow-y: auto;
+  }
+  .app {
+    height: auto;
+  }
+  .app-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .app-body > .day-panel {
+    flex-basis: auto;
+    align-self: stretch;
+  }
+}
+
+/* --- Add bells menu ------------------------------------------------------- */
+
+.menu {
+  position: relative;
+}
+
+.menu-list {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+}
+
+button.menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: none;
+  color: var(--text);
+  box-shadow: none;
+  border-radius: var(--radius);
+  text-align: left;
+}
+
+button.menu-item:hover:not(:disabled),
+button.menu-item:focus-visible {
+  background: color-mix(in srgb, var(--link) 10%, transparent);
+  box-shadow: none;
+  outline: none;
+}
+
+.menu-sep {
+  margin: var(--space-1) var(--space-2);
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+/* --- panel over the calendar -------------------------------------------------- */
+
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: flex-end;
+  background: color-mix(in srgb, var(--bg) 45%, transparent);
+}
+
+.sheet-panel {
+  width: min(480px, 100%);
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--card-bg);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--glass-shadow);
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.sheet-title {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+
+button.icon-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: var(--text-xl);
+  line-height: 1;
+  color: var(--muted);
+  background: none;
+  box-shadow: none;
+  border-radius: var(--radius);
+}
+
+button.icon-btn:hover:not(:disabled) {
+  color: var(--text);
+  background: color-mix(in srgb, var(--border) 60%, transparent);
+  box-shadow: none;
+}
+
+.date-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
   margin: 0;
 }
 
-/* Dark bells (e.g. near-black M0/G0) would vanish on the dark strips; a
-   faint ring keeps every bell visible without changing its color. */
-@media (prefers-color-scheme: dark) {
-  .mini-strip .mark,
-  .strip-track .mark {
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.28);
+.date-chip {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- jobs: top-bar button, tray, notices -------------------------------- */
+
+button.jobs-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.jobs-ring {
+  width: 18px;
+  height: 18px;
+  transform: rotate(-90deg);
+}
+
+.jobs-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.ring-track {
+  stroke: var(--border);
+}
+
+.ring-fill {
+  stroke: var(--link);
+  stroke-linecap: round;
+  stroke-dasharray: 0 100;
+  transition: stroke-dasharray 0.3s ease;
+}
+
+.jobs-btn:not(.working) .ring-fill {
+  stroke: var(--ok);
+  stroke-dasharray: 100 100 !important;
+}
+
+.jobs-btn.attention {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.jobs-btn.attention .ring-fill {
+  stroke: var(--danger);
+}
+
+.jobs-tray {
+  width: 360px;
+  max-height: 70vh;
+  overflow-y: auto;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.tray-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.jobs-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.jobs-list .empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-base);
+}
+
+.job-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: var(--text-base);
+}
+
+.job-row.running {
+  border-color: var(--link);
+}
+
+.job-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+button.job-title {
+  color: var(--text);
+  font-weight: 600;
+  text-align: left;
+}
+
+.job-status {
+  flex: none;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.job-status.running {
+  color: var(--link);
+}
+
+.job-status.done {
+  color: var(--ok);
+}
+
+.job-status.failed {
+  color: var(--danger);
+}
+
+.job-text {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.job-row.failed .job-text {
+  color: var(--danger);
+}
+
+button.job-cancel {
+  align-self: flex-start;
+  font-size: var(--text-sm);
+}
+
+.job-actions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+
+.warning.paused {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.warning.paused span {
+  flex: 1;
+}
+
+/* A day with a job waiting for it. */
+.cal-job {
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-radius: var(--radius-pill);
+  background: var(--link);
+}
+
+.day-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+button.day-job {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+  background: color-mix(in srgb, var(--link) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--link) 35%, transparent);
+  border-radius: var(--radius);
+  box-shadow: none;
+  text-align: left;
+}
+
+button.day-job:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--link) 16%, transparent);
+  box-shadow: none;
+}
+
+.day-job-state {
+  flex: none;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.bell-row.pending .bell-title,
+.bell-row.pending .bell-time,
+.bell-row.pending .bell-details {
+  text-decoration: line-through;
+}
+
+.bell-tag.job {
+  color: var(--link);
+  background: color-mix(in srgb, var(--link) 12%, transparent);
+}
+
+.review-item.busy .review-note {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.toasts {
+  position: fixed;
+  top: 76px;
+  right: var(--space-4);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(360px, calc(100vw - 2 * var(--space-4)));
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--link);
+  border-radius: var(--radius);
+  box-shadow: var(--glass-shadow);
+  pointer-events: auto;
+  animation: toast-in 0.2s ease-out;
+}
+
+.toast.success {
+  border-left-color: var(--ok);
+}
+
+.toast.fail {
+  border-left-color: var(--danger);
+}
+
+.toast-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.toast-title {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 700;
+}
+
+.toast.fail .toast-title {
+  color: var(--danger);
+}
+
+.toast-body {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.toast-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+}
+
+.toast-actions .link-btn {
+  font-size: var(--text-sm);
+}
+
+button.toast-close {
+  width: 24px;
+  height: 24px;
+  font-size: var(--text-lg);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
+
+/* --- splash ------------------------------------------------------------------ */
+/* Covers the window at launch; splash.js animates it and removes it. */
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--splash-bg);
+  cursor: default;
+}
+
+.splash-lockup {
+  --h: clamp(56px, 16vw, 96px);
+  position: relative;
+  display: flex;
+  align-items: center;
+  column-gap: calc(var(--h) * 0.3);
+}
+
+.splash-bell {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  width: calc(var(--h) * 0.926);
+  height: var(--h);
+}
+
+.splash-bell svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* The bell swings from its crown, the clapper from where it hangs. */
+.splash-bell-body {
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+}
+
+.splash-clapper {
+  transform-box: view-box;
+  transform-origin: 50px 18px;
+}
+
+.splash-star {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.splash-word {
+  position: relative;
+  z-index: 1;
+  height: calc(var(--h) * 0.68);
+}
+
+.splash-word picture,
+.splash-word img {
+  display: block;
+  height: 100%;
+  width: auto;
+}
+
+/* The splash starts on its first frame (bell, wordmark and sparkle all
+   hidden), not the finished logo: splash.js only starts the animation once
+   the wordmark image has loaded, and until then this is what shows. The
+   animation then takes over every one of these. With Reduce Motion,
+   splash.js adds .still to show the finished logo instead. */
+.splash:not(.still) .splash-bell,
+.splash:not(.still) .splash-star {
+  opacity: 0;
+}
+
+.splash:not(.still) .splash-word {
+  clip-path: inset(-20% 0 -20% 100%);
+}
+
+.splash-spark {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-gold);
+  box-shadow:
+    0 0 12px 4px var(--brand-gold),
+    0 0 28px 10px color-mix(in srgb, var(--brand-ember) 38%, transparent);
+  opacity: 0;
+  pointer-events: none;
 }
