@@ -205,7 +205,13 @@ A school on a different bell platform needs its own
    earlier ones there: a one-line summary, then New, Changed, Installing).
 3. `git tag v2.0.1 && git push origin v2.0.1`
 4. GitHub Actions builds the Mac and Windows installers and creates a
-   **draft** release with those notes. Review it, then publish. The repo is private, so send
+   **draft** release with those notes. Review it, then publish.
+
+   Instead of pushing a tag (steps 3 and 4), you can open **Actions →
+   Build installers → Run workflow**, pick the branch, and type the version
+   (`v2.0.1`). That makes the same draft release from that branch, and
+   GitHub creates the tag when you publish it. Either way, the version must
+   match `app/package.json` or the run stops. The repo is private, so send
    clients the installers directly.
 
 Installers are unsigned. On Windows, SmartScreen asks once ("More info",
