@@ -124,7 +124,7 @@ BellForge2.0/
 │   └── schedule-csv.js        CSV import for the builder
 ├── schools/
 │   └── odea/
-│       ├── school.json        { id, name, platform }
+│       ├── school.json        { id, name, platform, accent, accentDark }
 │       ├── schedules.json     bell times for every schedule type, plus menu order
 │       ├── schedules.notes.md where those bell times came from
 │       ├── schedule-import-template.csv
@@ -138,7 +138,12 @@ BellForge2.0/
 ## Adding a new school
 
 1. Copy `schools/odea/` to `schools/<new-school-id>/` and set `id` (the
-   folder name) and `name` in `school.json`.
+   folder name) and `name` in `school.json`. Set `accent` to the school's
+   color (a hex value like `"#7a1f2b"`); BellForge's buttons, links and
+   highlights take it on once the school is chosen. `accentDark` is
+   optional, for a brighter version in dark mode. Hover shades, and white
+   or dark text on buttons, are worked out from it (`app/renderer/accent.js`)
+   so every pairing stays readable.
 2. In `config.js`, set the device address (`cyberDataHost`), the calendar
    URL, and the audio file. The audio choices are on any bell's edit page
    in the calendar.

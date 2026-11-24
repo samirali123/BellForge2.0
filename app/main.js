@@ -239,8 +239,16 @@ async function withLogin(fn) {
 
 // --- IPC handlers --------------------------------------------------------
 
+// The accent colors go to the renderer as soon as a school is picked, so
+// the app takes on the school's color before the login finishes.
+const hexOrNull = (v) => (typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v) ? v : null);
 ipcMain.handle("list-schools", () => {
-  return listSchools().map((s) => ({ id: s.id, name: s.name }));
+  return listSchools().map((s) => ({
+    id: s.id,
+    name: s.name,
+    accent: hexOrNull(s.accent),
+    accentDark: hexOrNull(s.accentDark),
+  }));
 });
 
 ipcMain.handle("check-reachable", async (event, { schoolId }) => {

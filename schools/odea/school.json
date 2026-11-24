@@ -1,5 +1,7 @@
 {
   "id": "odea",
   "name": "O'Dea High School",
-  "platform": "cyberdata"
+  "platform": "cyberdata",
+  "accent": "#7a1f2b",
+  "accentDark": "#b0333f"
 }

@@ -11,6 +11,7 @@ const subtitle = document.getElementById("subtitle");
 // --- state ---------------------------------------------------------------
 
 let selectedSchoolId = null;
+let schools = []; // [{ id, name, accent, accentDark }] from list-schools
 let unsubscribeStatus = null;
 let scheduleMenu = null; // { schoolName, items: [{key, label, eventCount}], colors, warnings }
 let pendingAssignments = [];
@@ -116,7 +117,7 @@ function setNetworkStatus(state, text) {
 }
 
 async function loadSchools() {
-  const schools = await window.api.listSchools();
+  schools = await window.api.listSchools();
   schoolSelect.innerHTML = "";
 
   if (schools.length === 0) {
@@ -153,6 +154,7 @@ function setSubtitle(text) {
 async function onSchoolChange() {
   selectedSchoolId = schoolSelect.value || null;
   setSubtitle(selectedSchoolId ? schoolSelect.selectedOptions[0].textContent : "");
+  window.accent.applySchoolAccent(schools.find((s) => s.id === selectedSchoolId));
   clearConnectError();
   resetConnectLog();
   connectBtn.disabled = !selectedSchoolId;
@@ -1222,7 +1224,7 @@ function showReview() {
   }
 
   document.getElementById("review-total").textContent =
-    `${pendingAssignments.length} day(s), ${total} events total`;
+    `${plural(pendingAssignments.length, "day")}, ${plural(total, "event")} total`;
   showScreen("screen-review");
 }
 

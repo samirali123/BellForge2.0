@@ -6,6 +6,31 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- Launch splash (splash.js): the bell rings, a spark pushes the
+       wordmark out, then the sparkle appears. Removed once it finishes. -->
+  <div id="splash" class="splash" aria-hidden="true">
+    <div class="splash-lockup">
+      <div class="splash-bell">
+        <svg viewBox="0 0 100 108">
+          <g class="splash-bell-body">
+            <circle cx="50" cy="12" r="6" fill="#F0601A" />
+            <path d="M50 18 C32 18 28 36 27 50 C26 62 20 68 16 74 L16 78 Q16 80 18 80 L82 80 Q84 80 84 78 L84 74 C80 68 74 62 73 50 C72 36 68 18 50 18 Z" fill="#F0601A" />
+            <path d="M37 42 C38 34 42 29 47 27" stroke="#FFFDF9" stroke-width="3.5" stroke-linecap="round" fill="none" opacity="0.6" />
+          </g>
+          <path class="splash-clapper" d="M50 85 C52 89 58 91 58 97 A8 8 0 0 1 42 97 C42 91 48 89 50 85 Z" fill="#FFB43B" />
+          <path class="splash-star" d="M80 12 L82.5 19 L89 21.5 L82.5 24 L80 31 L77.5 24 L71 21.5 L77.5 19 Z" fill="#FFB43B" />
+        </svg>
+      </div>
+      <div class="splash-word">
+        <picture>
+          <source srcset="assets/bellforge-wordmark-on-dark.png" media="(prefers-color-scheme: dark)" />
+          <img src="assets/bellforge-wordmark-on-light.png" alt="" />
+        </picture>
+      </div>
+      <div class="splash-spark"></div>
+    </div>
+  </div>
+
   <main class="card">
     <header>
       <div class="header-row">
@@ -31,19 +56,21 @@
 
     <!-- Screen 1: connect -->
     <section id="screen-connect" class="screen">
-      <label class="field">
-        <span>School</span>
-        <select id="school-select">
-          <option value="" disabled selected>Loading schools…</option>
-        </select>
-      </label>
+      <div class="group">
+        <label class="field">
+          <span>School</span>
+          <select id="school-select">
+            <option value="" disabled selected>Loading schools…</option>
+          </select>
+        </label>
 
-      <div id="network-status" class="network-status" hidden>
-        <span class="dot"></span>
-        <span class="network-text"></span>
+        <div id="network-status" class="network-status" hidden>
+          <span class="dot"></span>
+          <span class="network-text"></span>
+        </div>
+
+        <p class="hint">Choosing a school opens its calendar login. Log in there as usual.</p>
       </div>
-
-      <p class="hint">Choosing a school opens its calendar login. Log in there as usual.</p>
 
       <button id="connect-btn" disabled>Log in</button>
 
@@ -176,11 +203,13 @@
     <!-- Screen: schedules added in the builder -->
     <section id="screen-my-schedules" class="screen" hidden>
       <button class="back-link" data-back="screen-mode">&larr; Back</button>
-      <p class="section-label">Schedule types you've added</p>
-      <p class="hint">
-        Deleting one removes it from BellForge's list only. Events already on the
-        calendar aren't affected. Built-in schedules can't be deleted.
-      </p>
+      <div class="group">
+        <p class="section-label">Schedule types you've added</p>
+        <p class="hint">
+          Deleting one removes it from BellForge's list only. Events already on the
+          calendar aren't affected. Built-in schedules can't be deleted.
+        </p>
+      </div>
       <div id="my-schedules-list" class="builder-blocks"></div>
       <div id="my-schedules-error" class="error" hidden></div>
     </section>
@@ -188,11 +217,13 @@
     <!-- Screen: schedule builder preview -->
     <section id="screen-builder-preview" class="screen" hidden>
       <button class="back-link" data-back="screen-builder">&larr; Back to edit</button>
-      <p class="section-label" id="preview-heading"></p>
-      <p class="hint">
-        These are the exact events that will be created every time this schedule is used.
-        Pass and Dismissal events are added automatically.
-      </p>
+      <div class="group">
+        <p class="section-label" id="preview-heading"></p>
+        <p class="hint">
+          These are the exact events that will be created every time this schedule is used.
+          Pass and Dismissal events are added automatically.
+        </p>
+      </div>
       <div id="preview-list" class="review-list"></div>
       <div id="preview-error" class="error" hidden></div>
       <button id="builder-save-btn">Save Schedule</button>
@@ -276,8 +307,8 @@
       <p class="section-label" id="progress-heading">Creating events…</p>
       <div class="meter" role="progressbar" id="progress-meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <div class="meter-head">
-          <span id="progress-count"></span>
-          <span id="progress-pct">0%</span>
+          <span id="progress-count" class="meter-count"></span>
+          <span id="progress-pct" class="meter-pct">0%</span>
         </div>
         <div class="meter-track"><div id="progress-fill" class="meter-fill"></div></div>
       </div>
@@ -287,6 +318,8 @@
     </section>
   </main>
 
+  <script src="splash.js"></script>
+  <script src="accent.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>
