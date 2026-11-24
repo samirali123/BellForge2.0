@@ -7,7 +7,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "postinstall": "node ../tools/brand-dev-electron.js",
+    "postinstall": "node ../tools/ensure-electron.js && node ../tools/brand-dev-electron.js",
     "dist": "electron-builder --publish never",
     "dist:mac": "electron-builder --mac --publish never",
     "dist:win": "electron-builder --win --publish never"

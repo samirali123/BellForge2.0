@@ -120,6 +120,14 @@ npm install
 npm start
 ```
 
+If `npm start` says "Electron failed to install correctly", Electron's
+download didn't finish unpacking (seen on Windows with Node 26). `npm
+install` now repairs that itself (`tools/ensure-electron.js`); to do it by
+hand on Windows, unpack `electron-v<version>-win32-x64.zip` from
+`%LOCALAPPDATA%\electron\Cache` into `app\node_modules\electron\dist`
+with `Expand-Archive`, then write `electron.exe` (no newline) to
+`app\node_modules\electron\path.txt`.
+
 The engine has no dependencies of its own. `npm test` (from the repo root)
 runs the job queue and device-lock tests, with the device faked. `npm install` in `app/` also
 renames the development copy of Electron to BellForge on macOS
