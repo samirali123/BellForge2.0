@@ -31,30 +31,27 @@
     </div>
   </div>
 
-  <main class="card">
-    <header>
-      <div class="header-row">
-        <div>
-          <h1 class="brand">
-            <!-- Full lockup; the white-lettering version swaps in for dark
-                 mode (prefers-color-scheme follows the theme switch). -->
-            <picture>
-              <source srcset="assets/bellforge-logo-on-dark.png" media="(prefers-color-scheme: dark)" />
-              <img src="assets/bellforge-logo-on-light.png" alt="BellForge" class="brand-logo" />
-            </picture>
-          </h1>
-          <p id="subtitle" class="subtitle" hidden></p>
-        </div>
-        <div id="theme-switch" class="segmented" role="radiogroup" aria-label="Appearance">
-          <button type="button" role="radio" data-theme="system">System</button>
-          <button type="button" role="radio" data-theme="light">Light</button>
-          <button type="button" role="radio" data-theme="dark">Dark</button>
-        </div>
+  <!-- Before login: choose a school and log in to its calendar. -->
+  <main id="connect-view" class="card">
+    <header class="header-row">
+      <div>
+        <h1 class="brand">
+          <!-- Full lockup; the white-lettering version swaps in for dark
+               mode (prefers-color-scheme follows the theme switch). -->
+          <picture>
+            <source srcset="assets/bellforge-logo-on-dark.png" media="(prefers-color-scheme: dark)" />
+            <img src="assets/bellforge-logo-on-light.png" alt="BellForge" class="brand-logo" />
+          </picture>
+        </h1>
+        <p id="subtitle" class="subtitle" hidden></p>
       </div>
-      <ol id="steps" class="steps" aria-label="Progress"></ol>
+      <div class="segmented theme-switch" role="radiogroup" aria-label="Appearance">
+        <button type="button" role="radio" data-theme="system">System</button>
+        <button type="button" role="radio" data-theme="light">Light</button>
+        <button type="button" role="radio" data-theme="dark">Dark</button>
+      </div>
     </header>
 
-    <!-- Screen 1: connect -->
     <section id="screen-connect" class="screen">
       <div class="group">
         <label class="field">
@@ -77,246 +74,297 @@
       <div id="connect-error" class="error" hidden></div>
       <div id="connect-log" class="log" hidden></div>
     </section>
+  </main>
 
-    <!-- Screen 2: mode -->
-    <section id="screen-mode" class="screen" hidden>
-      <p class="section-label">What do you want to do?</p>
-      <div class="mode-grid">
-        <button id="mode-calendar" class="mode-btn wide">
-          <span class="mode-title">Calendar</span>
-          <span class="mode-desc">See every day's bells, and delete bells</span>
-        </button>
-        <button id="mode-single" class="mode-btn">
-          <span class="mode-title">Single day</span>
-          <span class="mode-desc">One date, one schedule type</span>
-        </button>
-        <button id="mode-range" class="mode-btn">
-          <span class="mode-title">Date range</span>
-          <span class="mode-desc">Assign a schedule to every date in a range</span>
-        </button>
-        <button id="mode-build" class="mode-btn">
-          <span class="mode-title">New schedule type</span>
-          <span class="mode-desc">Build a schedule that isn't in the list yet</span>
-        </button>
-        <button id="mode-mine" class="mode-btn">
-          <span class="mode-title">My schedules</span>
-          <span class="mode-desc">Schedule types you've added</span>
-        </button>
+  <!-- After login: the calendar is home. Everything else opens over it. -->
+  <div id="app-view" class="app" hidden>
+    <header class="topbar">
+      <div class="topbar-brand">
+        <picture>
+          <source srcset="assets/bellforge-logo-on-dark.png" media="(prefers-color-scheme: dark)" />
+          <img src="assets/bellforge-logo-on-light.png" alt="BellForge" class="topbar-logo" />
+        </picture>
+        <span class="topbar-school">
+          <span id="school-name"></span>
+          <button id="change-school" class="link-btn">Change</button>
+        </span>
       </div>
-      <div id="mode-notice" class="notice" hidden></div>
-      <div id="mode-warnings" class="error" hidden></div>
-    </section>
-
-    <!-- Screen 3: single day -->
-    <section id="screen-single" class="screen" hidden>
-      <button class="back-link" data-back="screen-mode">&larr; Back</button>
-      <label class="field">
-        <span>Date</span>
-        <input id="single-date" type="date" />
-      </label>
-      <label class="field">
-        <span>Schedule</span>
-        <select id="single-schedule"></select>
-      </label>
-      <div id="single-error" class="error" hidden></div>
-      <button id="single-review-btn">Review</button>
-    </section>
-
-    <!-- Screen 4: date range -->
-    <section id="screen-range" class="screen" hidden>
-      <button class="back-link" data-back="screen-mode">&larr; Back</button>
-      <div class="range-dates">
-        <label class="field">
-          <span>Start date</span>
-          <input id="range-start" type="date" />
-        </label>
-        <label class="field">
-          <span>End date</span>
-          <input id="range-end" type="date" />
-        </label>
-      </div>
-      <div id="range-error" class="error" hidden></div>
-      <button id="range-generate-btn">Generate dates</button>
-
-      <div id="range-table-wrap" class="range-table-wrap" hidden>
-        <table id="range-table" class="range-table">
-          <tbody></tbody>
-        </table>
-        <button id="range-review-btn">Review</button>
-      </div>
-    </section>
-
-    <!-- Screen: schedule builder -->
-    <section id="screen-builder" class="screen" hidden>
-      <button class="back-link" data-back="screen-mode">&larr; Back</button>
-      <label class="field">
-        <span>Schedule name</span>
-        <input id="builder-label" type="text" placeholder="e.g. Spring Pep Rally" />
-      </label>
-
-      <p class="section-label">Blocks</p>
-      <div id="builder-blocks" class="builder-blocks"></div>
-      <div class="import-row">
-        <button id="import-csv-btn" class="secondary">Import CSV…</button>
-        <button id="csv-template-btn" class="link-btn">Get CSV template</button>
-      </div>
-      <div id="import-notice" class="notice" hidden></div>
-
-      <div class="builder-form">
-        <p class="section-label">Add a block</p>
-        <div class="builder-row">
-          <label class="field">
-            <span>Title</span>
-            <input id="block-title" type="text" placeholder="e.g. M1" />
-          </label>
-          <label class="field">
-            <span>Color</span>
-            <select id="block-color"></select>
-          </label>
-        </div>
-        <label class="field">
-          <span>Details (optional)</span>
-          <input id="block-details" type="text" placeholder="Defaults to the title" />
-        </label>
-        <div class="builder-row">
-          <label class="field">
-            <span>Start time</span>
-            <input id="block-start" type="time" />
-          </label>
-          <label class="field">
-            <span>End time</span>
-            <input id="block-end" type="time" />
-          </label>
-        </div>
-        <label class="checkbox">
-          <input id="block-point" type="checkbox" />
-          <span>This is a point event, no end time</span>
-        </label>
-        <div id="block-errors" class="field-errors"></div>
-        <button id="block-add-btn" disabled>Add Block</button>
-      </div>
-
-      <div id="builder-error" class="error" hidden></div>
-      <button id="builder-preview-btn">Preview</button>
-    </section>
-
-    <!-- Screen: schedules added in the builder -->
-    <section id="screen-my-schedules" class="screen" hidden>
-      <button class="back-link" data-back="screen-mode">&larr; Back</button>
-      <div class="group">
-        <p class="section-label">Schedule types you've added</p>
-        <p class="hint">
-          Deleting one removes it from BellForge's list only. Events already on the
-          calendar aren't affected. Built-in schedules can't be deleted.
-        </p>
-      </div>
-      <div id="my-schedules-list" class="builder-blocks"></div>
-      <div id="my-schedules-error" class="error" hidden></div>
-    </section>
-
-    <!-- Screen: schedule builder preview -->
-    <section id="screen-builder-preview" class="screen" hidden>
-      <button class="back-link" data-back="screen-builder">&larr; Back to edit</button>
-      <div class="group">
-        <p class="section-label" id="preview-heading"></p>
-        <p class="hint">
-          These are the exact events that will be created every time this schedule is used.
-          Pass and Dismissal events are added automatically.
-        </p>
-      </div>
-      <div id="preview-list" class="review-list"></div>
-      <div id="preview-error" class="error" hidden></div>
-      <button id="builder-save-btn">Save Schedule</button>
-    </section>
-
-    <!-- Screen: calendar (view and delete bells) -->
-    <section id="screen-calendar" class="screen" hidden>
-      <button class="back-link" data-back="screen-mode">&larr; Back</button>
 
       <div class="cal-head">
         <button id="cal-prev" class="secondary cal-nav" aria-label="Previous month">&lsaquo;</button>
         <h2 id="cal-title" class="cal-title"></h2>
         <button id="cal-next" class="secondary cal-nav" aria-label="Next month">&rsaquo;</button>
-        <div class="cal-tools">
-          <button id="cal-today" class="link-btn">Today</button>
-          <button id="cal-refresh" class="link-btn">Refresh</button>
+        <button id="cal-today" class="secondary">Today</button>
+        <button id="cal-refresh" class="secondary">Refresh</button>
+      </div>
+
+      <div class="topbar-actions">
+        <div class="menu">
+          <button id="add-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="add-menu">Add bells &#9662;</button>
+          <div id="add-menu" class="menu-list" role="menu" hidden>
+            <button id="mode-single" class="menu-item" role="menuitem">
+              <span class="mode-title">Single day</span>
+              <span class="mode-desc">One date, one schedule type</span>
+            </button>
+            <button id="mode-range" class="menu-item" role="menuitem">
+              <span class="mode-title">Date range</span>
+              <span class="mode-desc">A schedule for each date in a range</span>
+            </button>
+            <hr class="menu-sep" />
+            <button id="mode-build" class="menu-item" role="menuitem">
+              <span class="mode-title">New schedule type</span>
+              <span class="mode-desc">Build a schedule that isn't in the list yet</span>
+            </button>
+            <button id="mode-mine" class="menu-item" role="menuitem">
+              <span class="mode-title">My schedules</span>
+              <span class="mode-desc">Schedule types you've added</span>
+            </button>
+          </div>
+        </div>
+        <div class="segmented theme-switch" role="radiogroup" aria-label="Appearance">
+          <button type="button" role="radio" data-theme="system">System</button>
+          <button type="button" role="radio" data-theme="light">Light</button>
+          <button type="button" role="radio" data-theme="dark">Dark</button>
         </div>
       </div>
-      <p id="cal-status" class="hint cal-status" hidden></p>
+    </header>
+
+    <div class="app-notices">
+      <p id="cal-status" class="hint" hidden></p>
       <div id="cal-error" class="error" hidden></div>
+      <div id="mode-notice" class="notice" hidden></div>
+      <div id="mode-warnings" class="error" hidden></div>
+    </div>
 
-      <div class="cal-weekdays" aria-hidden="true">
-        <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+    <div class="app-body">
+      <section id="screen-calendar" class="cal-main" aria-label="Month">
+        <div class="cal-weekdays" aria-hidden="true">
+          <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+        </div>
+        <div id="cal-grid" class="cal-grid"></div>
+        <p class="hint cal-tip">Shift-click picks every weekday between two days. Ctrl-click (&#8984;-click on Mac) adds or removes one day.</p>
+      </section>
+
+      <aside id="day-panel" class="day-panel" aria-label="Selected day">
+        <p id="day-empty" class="empty">Choose a day to see its bells.</p>
+
+        <!-- One day: its bells, with delete. -->
+        <div id="day-one" class="day-section" hidden>
+          <div class="day-head">
+            <div>
+              <h3 id="day-title" class="day-title"></h3>
+              <span id="day-count" class="day-count"></span>
+            </div>
+            <button id="day-apply" class="secondary">Apply schedule…</button>
+          </div>
+
+          <div id="day-strip" class="day-strip" aria-hidden="true"></div>
+
+          <div id="day-list" class="bell-list"></div>
+
+          <div id="day-actions" class="day-actions">
+            <button id="day-select-all" class="link-btn">Select all</button>
+            <button id="day-select-none" class="link-btn">Clear</button>
+            <button id="day-delete" class="danger-btn" disabled>Delete selected</button>
+          </div>
+
+          <div id="confirm-panel" class="confirm-panel" hidden>
+            <p id="confirm-text" class="confirm-text"></p>
+            <div id="confirm-list" class="confirm-list"></div>
+            <div id="confirm-warning" class="warning" hidden></div>
+            <label id="confirm-ack-row" class="checkbox" hidden>
+              <input id="confirm-ack" type="checkbox" />
+              <span>I understand these bells won't ring today</span>
+            </label>
+            <div class="confirm-actions">
+              <button id="confirm-delete" class="danger-btn">Delete</button>
+              <button id="confirm-cancel" class="secondary">Cancel</button>
+            </div>
+          </div>
+
+          <div id="delete-meter" class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden>
+            <div class="meter-head">
+              <span id="delete-count" class="meter-count"></span>
+              <span id="delete-pct" class="meter-pct">0%</span>
+            </div>
+            <div class="meter-track"><div id="delete-fill" class="meter-fill"></div></div>
+            <p class="hint">Each bell takes about 15 seconds. Keep BellForge open until it finishes.</p>
+          </div>
+
+          <div id="delete-result" class="progress-summary" hidden></div>
+        </div>
+
+        <!-- Several days: apply one schedule to all of them. -->
+        <div id="day-many" class="day-section" hidden>
+          <div class="day-head">
+            <div>
+              <h3 id="many-title" class="day-title"></h3>
+              <span id="many-count" class="day-count"></span>
+            </div>
+          </div>
+          <div id="many-list" class="bell-list"></div>
+          <div class="day-actions">
+            <button id="many-clear" class="link-btn">Clear selection</button>
+            <button id="many-apply">Apply schedule…</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Adding bells and managing schedule types: a panel over the calendar. -->
+  <div id="sheet" class="sheet" hidden>
+    <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <div class="sheet-head">
+        <h2 id="sheet-title" class="sheet-title"></h2>
+        <button id="sheet-close" class="icon-btn" aria-label="Close">&times;</button>
       </div>
-      <div id="cal-grid" class="cal-grid"></div>
+      <ol id="steps" class="steps" aria-label="Progress"></ol>
 
-      <div id="day-panel" class="day-panel" hidden>
-        <div class="day-head">
-          <h3 id="day-title" class="day-title"></h3>
-          <span id="day-count" class="day-count"></span>
+      <!-- Single day (or the days chosen on the calendar) -->
+      <section id="screen-single" class="screen" hidden>
+        <label id="single-date-field" class="field">
+          <span>Date</span>
+          <input id="single-date" type="date" />
+        </label>
+        <div id="single-dates-field" class="group" hidden>
+          <p class="section-label">Dates</p>
+          <p id="single-dates" class="date-chips"></p>
         </div>
+        <label class="field">
+          <span>Schedule</span>
+          <select id="single-schedule"></select>
+        </label>
+        <div id="single-error" class="error" hidden></div>
+        <button id="single-review-btn">Review</button>
+      </section>
 
-        <div id="day-strip" class="day-strip" aria-hidden="true"></div>
-
-        <div id="day-list" class="bell-list"></div>
-
-        <div id="day-actions" class="day-actions">
-          <button id="day-select-all" class="link-btn">Select all</button>
-          <button id="day-select-none" class="link-btn">Clear</button>
-          <button id="day-delete" class="danger-btn" disabled>Delete selected</button>
-        </div>
-
-        <div id="confirm-panel" class="confirm-panel" hidden>
-          <p id="confirm-text" class="confirm-text"></p>
-          <div id="confirm-list" class="confirm-list"></div>
-          <div id="confirm-warning" class="warning" hidden></div>
-          <label id="confirm-ack-row" class="checkbox" hidden>
-            <input id="confirm-ack" type="checkbox" />
-            <span>I understand these bells won't ring today</span>
+      <!-- Date range -->
+      <section id="screen-range" class="screen" hidden>
+        <div class="range-dates">
+          <label class="field">
+            <span>Start date</span>
+            <input id="range-start" type="date" />
           </label>
-          <div class="confirm-actions">
-            <button id="confirm-delete" class="danger-btn">Delete</button>
-            <button id="confirm-cancel" class="secondary">Cancel</button>
+          <label class="field">
+            <span>End date</span>
+            <input id="range-end" type="date" />
+          </label>
+        </div>
+        <div id="range-error" class="error" hidden></div>
+        <button id="range-generate-btn">Generate dates</button>
+
+        <div id="range-table-wrap" class="range-table-wrap" hidden>
+          <table id="range-table" class="range-table">
+            <tbody></tbody>
+          </table>
+          <button id="range-review-btn">Review</button>
+        </div>
+      </section>
+
+      <!-- Schedule builder -->
+      <section id="screen-builder" class="screen" hidden>
+        <label class="field">
+          <span>Schedule name</span>
+          <input id="builder-label" type="text" placeholder="e.g. Spring Pep Rally" />
+        </label>
+
+        <p class="section-label">Blocks</p>
+        <div id="builder-blocks" class="builder-blocks"></div>
+        <div class="import-row">
+          <button id="import-csv-btn" class="secondary">Import CSV…</button>
+          <button id="csv-template-btn" class="link-btn">Get CSV template</button>
+        </div>
+        <div id="import-notice" class="notice" hidden></div>
+
+        <div class="builder-form">
+          <p class="section-label">Add a block</p>
+          <div class="builder-row">
+            <label class="field">
+              <span>Title</span>
+              <input id="block-title" type="text" placeholder="e.g. M1" />
+            </label>
+            <label class="field">
+              <span>Color</span>
+              <select id="block-color"></select>
+            </label>
           </div>
+          <label class="field">
+            <span>Details (optional)</span>
+            <input id="block-details" type="text" placeholder="Defaults to the title" />
+          </label>
+          <div class="builder-row">
+            <label class="field">
+              <span>Start time</span>
+              <input id="block-start" type="time" />
+            </label>
+            <label class="field">
+              <span>End time</span>
+              <input id="block-end" type="time" />
+            </label>
+          </div>
+          <label class="checkbox">
+            <input id="block-point" type="checkbox" />
+            <span>This is a point event, no end time</span>
+          </label>
+          <div id="block-errors" class="field-errors"></div>
+          <button id="block-add-btn" disabled>Add Block</button>
         </div>
 
-        <div id="delete-meter" class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden>
+        <div id="builder-error" class="error" hidden></div>
+        <button id="builder-preview-btn">Preview</button>
+      </section>
+
+      <!-- Schedules added in the builder -->
+      <section id="screen-my-schedules" class="screen" hidden>
+        <p class="hint">
+          Deleting one removes it from BellForge's list only. Events already on the
+          calendar aren't affected. Built-in schedules can't be deleted.
+        </p>
+        <div id="my-schedules-list" class="builder-blocks"></div>
+        <div id="my-schedules-error" class="error" hidden></div>
+      </section>
+
+      <!-- Schedule builder preview -->
+      <section id="screen-builder-preview" class="screen" hidden>
+        <button class="back-link" data-back="screen-builder">&larr; Back to edit</button>
+        <div class="group">
+          <p class="section-label" id="preview-heading"></p>
+          <p class="hint">
+            These are the exact events that will be created every time this schedule is used.
+            Pass and Dismissal events are added automatically.
+          </p>
+        </div>
+        <div id="preview-list" class="review-list"></div>
+        <div id="preview-error" class="error" hidden></div>
+        <button id="builder-save-btn">Save Schedule</button>
+      </section>
+
+      <!-- Review before creating -->
+      <section id="screen-review" class="screen" hidden>
+        <button class="back-link" id="review-back">&larr; Back</button>
+        <p class="section-label">You are about to create</p>
+        <div id="review-list" class="review-list"></div>
+        <p id="review-total" class="review-total"></p>
+        <button id="review-confirm-btn">Create Events</button>
+      </section>
+
+      <!-- Creating -->
+      <section id="screen-progress" class="screen" hidden>
+        <p class="section-label" id="progress-heading">Creating events…</p>
+        <div class="meter" role="progressbar" id="progress-meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <div class="meter-head">
-            <span id="delete-count" class="meter-count"></span>
-            <span id="delete-pct" class="meter-pct">0%</span>
+            <span id="progress-count" class="meter-count"></span>
+            <span id="progress-pct" class="meter-pct">0%</span>
           </div>
-          <div class="meter-track"><div id="delete-fill" class="meter-fill"></div></div>
-          <p class="hint meter-hint">Each bell takes about 15 seconds. Keep BellForge open until it finishes.</p>
+          <div class="meter-track"><div id="progress-fill" class="meter-fill"></div></div>
         </div>
-
-        <div id="delete-result" class="progress-summary" hidden></div>
-      </div>
-    </section>
-
-    <!-- Screen 5: review -->
-    <section id="screen-review" class="screen" hidden>
-      <button class="back-link" id="review-back">&larr; Back</button>
-      <p class="section-label">You are about to create</p>
-      <div id="review-list" class="review-list"></div>
-      <p id="review-total" class="review-total"></p>
-      <button id="review-confirm-btn">Create Events</button>
-    </section>
-
-    <!-- Screen 6: progress -->
-    <section id="screen-progress" class="screen" hidden>
-      <p class="section-label" id="progress-heading">Creating events…</p>
-      <div class="meter" role="progressbar" id="progress-meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-        <div class="meter-head">
-          <span id="progress-count" class="meter-count"></span>
-          <span id="progress-pct" class="meter-pct">0%</span>
-        </div>
-        <div class="meter-track"><div id="progress-fill" class="meter-fill"></div></div>
-      </div>
-      <div id="progress-log" class="log progress-log"></div>
-      <div id="progress-summary" class="progress-summary" hidden></div>
-      <button id="progress-done-btn" hidden>Start over</button>
-    </section>
-  </main>
+        <div id="progress-log" class="log progress-log"></div>
+        <div id="progress-summary" class="progress-summary" hidden></div>
+        <button id="progress-done-btn" hidden>Done</button>
+      </section>
+    </div>
+  </div>
 
   <script src="splash.js"></script>
   <script src="accent.js"></script>

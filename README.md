@@ -18,14 +18,18 @@ times, colors and device address. See "Adding a new school" below.
 
 1. Open BellForge and choose your school. BellForge checks the calendar
    device is reachable (you need to be on that school's network or VPN),
-   then opens the calendar's own login page in a small window.
+   then opens the calendar's own login page in a small window. Next time,
+   BellForge remembers the school and opens its login straight away
+   (**Change** next to the school's name picks another).
 2. Log in there as usual. BellForge keeps the login session that page
    creates and never sees the password. If the login expires while you're
    working, the login window opens again and the task carries on.
-3. Choose what to do:
-   - **Calendar**: see any month, each day's bells, and delete bells.
-   - **Single day** or **Date range**: put a schedule type on dates.
-   - **New schedule type** and **My schedules**: build your own types.
+3. The calendar opens on the current month, with today selected. From
+   there:
+   - Click a day to see its bells, delete them, or **Apply schedule…** to it.
+   - **Add bells** (top right) has **Single day**, **Date range**, **New
+     schedule type** and **My schedules**. Each opens in a panel over the
+     calendar; close it (or press Esc) to go back.
 
 Every bell is created at the school's chosen audio file, zone, and color,
 then BellForge re-reads the calendar to confirm each one is really there.
@@ -34,13 +38,17 @@ keep BellForge open until a run finishes.
 
 ## Calendar: viewing and deleting bells
 
-Choose **Calendar** to open the current month. Each day shows how many
-bells it has and a small timeline of them in their calendar colors. Use the
-arrows to change month, **Today** to jump back, and **Refresh** to re-read.
+Each day shows how many bells it has and a small timeline of them in
+their calendar colors. Use the arrows to change month, **Today** to jump
+back, and **Refresh** to re-read.
 
-Click a day to see its bells, with a larger timeline (and a line at the
-current time when it's today). Today's bells are marked **Rang** or **Later
-today**.
+Click a day to see its bells on the right, with a larger timeline (and a
+line at the current time when it's today). Today's bells are marked
+**Rang** or **Later today**.
+
+To put one schedule on several days, Shift-click a second day to pick every
+weekday in between, or Ctrl-click (Cmd-click on Mac) to add or remove single
+days, weekends included. Then **Apply schedule…**.
 
 To delete, tick the bells (or **Select all**), then **Delete selected**. A
 confirmation lists exactly what will be removed. If any of them are later

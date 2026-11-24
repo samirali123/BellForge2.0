@@ -7,6 +7,8 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("api", {
   listSchools: () => ipcRenderer.invoke("list-schools"),
   getTheme: () => ipcRenderer.invoke("get-theme"),
+  getLastSchool: () => ipcRenderer.invoke("get-last-school"),
+  forgetLastSchool: () => ipcRenderer.invoke("forget-last-school"),
   setTheme: (theme) => ipcRenderer.invoke("set-theme", { theme }),
   checkReachable: (schoolId) => ipcRenderer.invoke("check-reachable", { schoolId }),
   connect: (schoolId) => ipcRenderer.invoke("connect", { schoolId }),
@@ -20,7 +22,6 @@ contextBridge.exposeInMainWorld("api", {
   saveCsvTemplate: () => ipcRenderer.invoke("save-csv-template"),
   readMonth: (year, month) => ipcRenderer.invoke("read-month", { year, month }),
   deleteBells: (bells) => ipcRenderer.invoke("delete-events", { bells }),
-  fitCalendar: () => ipcRenderer.invoke("fit-calendar"),
   onDeleteProgress: (callback) => {
     const listener = (event, progress) => callback(progress);
     ipcRenderer.on("delete-progress", listener);

@@ -140,11 +140,19 @@ body {
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Before login, the card sits in the middle of the window. */
   display: flex;
-  align-items: flex-start;
+  align-items: safe center;
   justify-content: center;
   height: 100vh;
   overflow-y: auto;
+}
+
+/* After login, the calendar fills the window edge to edge. */
+body.app-mode {
+  display: block;
+  padding: 0;
+  overflow: hidden;
 }
 
 .card {
@@ -339,34 +347,6 @@ button:disabled {
   text-decoration: underline;
 }
 
-.mode-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
-}
-
-.mode-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
-  background: var(--card-bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  text-align: left;
-  cursor: pointer;
-  box-shadow: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.mode-btn:hover {
-  background: var(--card-bg);
-  border-color: var(--link);
-  box-shadow: var(--glow-card);
-}
-
 .mode-title {
   font-size: var(--text-md);
   font-weight: 700;
@@ -481,10 +461,6 @@ button:disabled {
 .progress-summary.fail {
   color: var(--danger);
   background: var(--danger-bg);
-}
-
-.mode-btn.wide {
-  grid-column: 1 / -1;
 }
 
 .notice {
@@ -737,7 +713,7 @@ button.link-btn:hover:not(:disabled) {
 .steps {
   display: flex;
   list-style: none;
-  margin: var(--space-4) 0 0;
+  margin: 0;
   padding: 0;
   gap: var(--space-2);
 }
@@ -839,11 +815,6 @@ button.link-btn:hover:not(:disabled) {
 
 /* --- calendar --------------------------------------------------------------- */
 
-/* The month grid needs more width than the other screens. */
-.card:has(#screen-calendar:not([hidden])) {
-  max-width: 720px;
-}
-
 .cal-head {
   display: flex;
   align-items: center;
@@ -864,12 +835,6 @@ button.cal-nav {
   line-height: 1;
 }
 
-.cal-tools {
-  display: flex;
-  gap: var(--space-3);
-  margin-left: auto;
-}
-
 .cal-weekdays,
 .cal-grid {
   display: grid;
@@ -888,7 +853,7 @@ button.cal-day {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  min-height: 64px;
+  min-height: 84px;
   padding: var(--space-2);
   background: var(--card-bg);
   color: var(--text);
@@ -973,18 +938,45 @@ button.cal-day.out {
 /* --- day panel --------------------------------------------------------------- */
 
 .day-panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  flex: 0 0 380px;
+  min-width: 0;
+  overflow-y: auto;
   padding: var(--space-4);
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
 }
 
+.day-panel > .empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-base);
+}
+
+.day-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.day-head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.day-head .day-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.day-head button {
+  flex: none;
+}
+
 .day-head {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
 }
@@ -1226,6 +1218,253 @@ button.danger-btn:hover:not(:disabled) {
 .mini-strip .mark,
 .strip-track .mark {
   box-shadow: 0 0 0 1px var(--mark-ring);
+}
+
+/* --- app layout: top bar, calendar, day panel ------------------------------ */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--glass-bg);
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  position: relative;
+  z-index: 10;
+}
+
+.topbar-brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.topbar-logo {
+  display: block;
+  height: 24px;
+  width: auto;
+}
+
+.topbar-school {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.topbar-school .link-btn {
+  font-size: var(--text-sm);
+}
+
+.topbar .cal-head {
+  flex: 1;
+  justify-content: center;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.app-notices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+}
+
+.app-notices:has(> :not([hidden])) {
+  padding-top: var(--space-4);
+}
+
+.app-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.app-body > .day-panel {
+  align-self: flex-start;
+  max-height: 100%;
+}
+
+.cal-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* The month fills the height it has; cells never shrink below their
+   minimum, and the area scrolls instead. */
+.cal-main .cal-grid {
+  flex: 1;
+  grid-auto-rows: minmax(84px, 1fr);
+}
+
+.cal-tip {
+  margin-top: var(--space-2);
+}
+
+/* Narrow windows: the day panel goes under the month. */
+@media (max-width: 900px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+  .topbar .cal-head {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .topbar-actions {
+    margin-left: auto;
+  }
+  body.app-mode {
+    overflow-y: auto;
+  }
+  .app {
+    height: auto;
+  }
+  .app-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .app-body > .day-panel {
+    flex-basis: auto;
+    align-self: stretch;
+  }
+}
+
+/* --- Add bells menu ------------------------------------------------------- */
+
+.menu {
+  position: relative;
+}
+
+.menu-list {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+}
+
+button.menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: none;
+  color: var(--text);
+  box-shadow: none;
+  border-radius: var(--radius);
+  text-align: left;
+}
+
+button.menu-item:hover:not(:disabled),
+button.menu-item:focus-visible {
+  background: color-mix(in srgb, var(--link) 10%, transparent);
+  box-shadow: none;
+  outline: none;
+}
+
+.menu-sep {
+  margin: var(--space-1) var(--space-2);
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+/* --- panel over the calendar -------------------------------------------------- */
+
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: flex-end;
+  background: color-mix(in srgb, var(--bg) 45%, transparent);
+}
+
+.sheet-panel {
+  width: min(480px, 100%);
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--card-bg);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--glass-shadow);
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.sheet-title {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+
+button.icon-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: var(--text-xl);
+  line-height: 1;
+  color: var(--muted);
+  background: none;
+  box-shadow: none;
+  border-radius: var(--radius);
+}
+
+button.icon-btn:hover:not(:disabled) {
+  color: var(--text);
+  background: color-mix(in srgb, var(--border) 60%, transparent);
+  box-shadow: none;
+}
+
+.date-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.date-chip {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 /* --- splash ------------------------------------------------------------------ */

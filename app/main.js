@@ -45,11 +45,14 @@ function createWindow() {
     app.dock.setIcon(DEV_ICON);
   }
 
+  // Sized for the calendar, which is the home screen. The login card sits
+  // centered in it.
+  const { width: sw, height: sh } = require("electron").screen.getPrimaryDisplay().workAreaSize;
   mainWindow = new BrowserWindow({
-    width: 480,
-    height: 680,
-    minWidth: 420,
-    minHeight: 520,
+    width: Math.min(1180, sw),
+    height: Math.min(800, sh),
+    minWidth: 720,
+    minHeight: 560,
     resizable: true,
     title: "BellForge",
     ...(!app.isPackaged && fs.existsSync(DEV_ICON) ? { icon: DEV_ICON } : {}),
@@ -86,6 +89,18 @@ function writeSettings(settings) {
 }
 
 ipcMain.handle("get-theme", () => nativeTheme.themeSource);
+
+// The school last logged in to, so its login opens straight away next time.
+ipcMain.handle("get-last-school", () => readSettings().lastSchool || null);
+ipcMain.handle("forget-last-school", () => {
+  try {
+    const { lastSchool, ...rest } = readSettings();
+    writeSettings(rest);
+  } catch {
+    // Nothing remembered is fine.
+  }
+  return { ok: true };
+});
 
 ipcMain.handle("set-theme", (event, { theme }) => {
   if (!THEMES.includes(theme)) return { ok: false };
@@ -298,6 +313,12 @@ ipcMain.handle("connect", async (event, { schoolId }) => {
       // New schedules use the calendar's own color labels.
       colorKeys: loaded.pickerColors,
     };
+
+    try {
+      writeSettings({ ...readSettings(), lastSchool: schoolId });
+    } catch {
+      // Not remembering the school only means choosing it again next time.
+    }
 
     sendStatus("Connected.");
     return { ok: true };
@@ -541,17 +562,3 @@ ipcMain.handle("delete-events", (event, { bells }) =>
     };
   })
 );
-
-// The month grid needs more room than the connect/schedule screens. Grows
-// the window once when the calendar opens; never shrinks it.
-ipcMain.handle("fit-calendar", () => {
-  if (!mainWindow) return;
-  const [w, h] = mainWindow.getSize();
-  const { width: sw, height: sh } = require("electron").screen.getDisplayMatching(mainWindow.getBounds()).workArea;
-  const nw = Math.min(Math.max(w, 760), sw);
-  const nh = Math.min(Math.max(h, 820), sh);
-  if (nw !== w || nh !== h) {
-    mainWindow.setSize(nw, nh, true);
-    mainWindow.center();
-  }
-});

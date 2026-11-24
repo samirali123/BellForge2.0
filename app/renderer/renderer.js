@@ -15,38 +15,86 @@ let schools = []; // [{ id, name, accent, accentDark }] from list-schools
 let unsubscribeStatus = null;
 let scheduleMenu = null; // { schoolName, items: [{key, label, eventCount}], colors, warnings }
 let pendingAssignments = [];
-let reviewOrigin = "screen-mode";
+let reviewOrigin = "screen-single";
+let creating = false; // a create run is in progress; the panel can't close
+let refreshAfterRun = false; // re-read the month when the panel closes after a run
 
-// --- screen switching ------------------------------------------------------
+// --- views -------------------------------------------------------------------
+// Three layers: the login card (before connecting), the calendar (home, once
+// connected), and a panel over the calendar for adding bells and managing
+// schedule types. showScreen() takes any screen id and shows the right one:
+// "screen-calendar" closes the panel.
+
+const connectView = document.getElementById("connect-view");
+const appView = document.getElementById("app-view");
+const sheet = document.getElementById("sheet");
+const sheetTitle = document.getElementById("sheet-title");
+const sheetClose = document.getElementById("sheet-close");
+
+const SHEET_TITLES = {
+  "screen-single": "Apply a schedule",
+  "screen-range": "Date range",
+  "screen-builder": "New schedule type",
+  "screen-builder-preview": "New schedule type",
+  "screen-my-schedules": "My schedules",
+  "screen-review": "Review",
+  "screen-progress": "Creating bells",
+};
 
 function showScreen(id) {
-  document.querySelectorAll(".screen").forEach((s) => {
+  if (id === "screen-connect") {
+    closeSheet();
+    appView.hidden = true;
+    connectView.hidden = false;
+    document.body.classList.remove("app-mode");
+    return;
+  }
+  if (id === "screen-calendar") {
+    closeSheet();
+    return;
+  }
+  closeAddMenu();
+  const wasOpen = !sheet.hidden;
+  sheet.hidden = false;
+  sheet.querySelectorAll(".screen").forEach((s) => {
     s.hidden = s.id !== id;
   });
+  sheetTitle.textContent = SHEET_TITLES[id] || "";
+  sheetClose.hidden = creating;
   renderSteps(id);
+  sheet.querySelector(".sheet-panel").scrollTop = 0;
+  if (!wasOpen) sheetClose.focus();
 }
 
+function closeSheet() {
+  if (creating || sheet.hidden) return;
+  sheet.hidden = true;
+  document.getElementById("add-btn").focus();
+  // However the panel closes after a run, the calendar re-reads the month
+  // so it shows the bells that were just created.
+  if (refreshAfterRun && cal.year) {
+    refreshAfterRun = false;
+    loadMonth(cal.year, cal.month);
+  }
+}
+
+sheetClose.addEventListener("click", closeSheet);
+
 // --- step indicator ----------------------------------------------------------
-// Each screen belongs to one flow; the bar shows that flow's steps with
-// the current one highlighted. Only real flows, nothing decorative.
+// Multi-step flows in the panel show their steps, the current one
+// highlighted. Single-step screens show none.
 
 const FLOWS = {
-  create: ["Connect", "Choose", "Dates", "Review", "Create"],
-  build: ["Connect", "Choose", "Build", "Preview"],
-  manage: ["Connect", "Choose", "My schedules"],
-  calendar: ["Connect", "Choose", "Calendar"],
+  create: ["Dates", "Review", "Create"],
+  build: ["Build", "Preview"],
 };
 const SCREEN_STEPS = {
-  "screen-connect": ["create", 0],
-  "screen-mode": ["create", 1],
-  "screen-single": ["create", 2],
-  "screen-range": ["create", 2],
-  "screen-review": ["create", 3],
-  "screen-progress": ["create", 4],
-  "screen-builder": ["build", 2],
-  "screen-builder-preview": ["build", 3],
-  "screen-my-schedules": ["manage", 2],
-  "screen-calendar": ["calendar", 2],
+  "screen-single": ["create", 0],
+  "screen-range": ["create", 0],
+  "screen-review": ["create", 1],
+  "screen-progress": ["create", 2],
+  "screen-builder": ["build", 0],
+  "screen-builder-preview": ["build", 1],
 };
 
 function renderSteps(screenId) {
@@ -69,7 +117,8 @@ function renderSteps(screenId) {
 
 // --- theme switch ------------------------------------------------------------
 
-const themeButtons = document.querySelectorAll("#theme-switch button");
+// There's a switch on the login card and another in the calendar's top bar.
+const themeButtons = document.querySelectorAll(".theme-switch button");
 
 function markTheme(theme) {
   themeButtons.forEach((b) => b.setAttribute("aria-checked", String(b.dataset.theme === theme)));
@@ -222,8 +271,7 @@ async function onConnectClick() {
     }
     applyScheduleMenu(menu);
     setSubtitle(menu.schoolName);
-
-    showScreen("screen-mode");
+    enterApp(menu);
   } catch (err) {
     showConnectError(`Unexpected error: ${err.message}`);
   } finally {
@@ -233,6 +281,24 @@ async function onConnectClick() {
     }
   }
 }
+
+// The calendar is home: once connected, it opens on the current month with
+// today selected.
+function enterApp(menu) {
+  document.getElementById("school-name").textContent = menu.schoolName;
+  connectView.hidden = true;
+  appView.hidden = false;
+  document.body.classList.add("app-mode");
+  const now = new Date();
+  loadMonth(now.getFullYear(), now.getMonth() + 1, { selectDate: todayStr() });
+}
+
+// Forgets the remembered school and starts again from the login card.
+document.getElementById("change-school").addEventListener("click", async () => {
+  if (creating || cal.busy) return;
+  await window.api.forgetLastSchool();
+  location.reload();
+});
 
 // --- schedule select helper --------------------------------------------
 
@@ -280,12 +346,51 @@ function populateScheduleSelect(selectEl, includeBlank) {
   }
 }
 
-// --- mode screen ---------------------------------------------------------
+// --- Add bells menu ---------------------------------------------------------
+
+const addBtn = document.getElementById("add-btn");
+const addMenu = document.getElementById("add-menu");
+const menuItems = [...addMenu.querySelectorAll(".menu-item")];
+
+function openAddMenu() {
+  addMenu.hidden = false;
+  addBtn.setAttribute("aria-expanded", "true");
+  menuItems[0].focus();
+}
+function closeAddMenu() {
+  if (addMenu.hidden) return;
+  addMenu.hidden = true;
+  addBtn.setAttribute("aria-expanded", "false");
+}
+
+addBtn.addEventListener("click", () => (addMenu.hidden ? openAddMenu() : closeAddMenu()));
+document.addEventListener("click", (e) => {
+  if (!addMenu.hidden && !e.target.closest(".menu")) closeAddMenu();
+});
+addMenu.addEventListener("keydown", (e) => {
+  const i = menuItems.indexOf(document.activeElement);
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    const next = (i + (e.key === "ArrowDown" ? 1 : -1) + menuItems.length) % menuItems.length;
+    menuItems[next].focus();
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (!addMenu.hidden) {
+    closeAddMenu();
+    addBtn.focus();
+  } else if (!sheet.hidden) {
+    closeSheet();
+  }
+});
 
 document.getElementById("mode-single").addEventListener("click", () => {
-  showScreen("screen-single");
+  document.getElementById("mode-notice").hidden = true;
+  openSingle(cal.date ? [cal.date] : []);
 });
 document.getElementById("mode-range").addEventListener("click", () => {
+  document.getElementById("mode-notice").hidden = true;
   showScreen("screen-range");
 });
 document.getElementById("mode-mine").addEventListener("click", () => {
@@ -304,17 +409,42 @@ document.querySelectorAll(".back-link[data-back]").forEach((btn) => {
 });
 
 // --- single-day screen -----------------------------------------------------
+// Opened with no date (from the menu), one date (a day on the calendar), or
+// several (days picked with Shift or Ctrl/Cmd): one schedule for them all.
+
+let singleDates = []; // set when several days were picked on the calendar
+
+function openSingle(dates) {
+  const many = dates.length > 1;
+  singleDates = many ? [...dates].sort() : [];
+  document.getElementById("single-date-field").hidden = many;
+  document.getElementById("single-dates-field").hidden = !many;
+  document.getElementById("single-error").hidden = true;
+  if (many) {
+    const chips = document.getElementById("single-dates");
+    chips.innerHTML = "";
+    for (const d of singleDates) {
+      const chip = document.createElement("span");
+      chip.className = "date-chip";
+      chip.textContent = shortDate(d);
+      chips.appendChild(chip);
+    }
+  } else {
+    document.getElementById("single-date").value = dates[0] || "";
+  }
+  showScreen("screen-single");
+}
 
 document.getElementById("single-review-btn").addEventListener("click", () => {
-  const date = document.getElementById("single-date").value;
+  const dates = singleDates.length > 0 ? singleDates : [document.getElementById("single-date").value].filter(Boolean);
   const scheduleKey = document.getElementById("single-schedule").value;
   const error = document.getElementById("single-error");
-  error.hidden = !!date;
-  if (!date) {
+  error.hidden = dates.length > 0;
+  if (dates.length === 0) {
     error.textContent = "Pick a date.";
     return;
   }
-  pendingAssignments = [{ date, scheduleKey }];
+  pendingAssignments = dates.map((date) => ({ date, scheduleKey }));
   reviewOrigin = "screen-single";
   showReview();
 });
@@ -696,7 +826,7 @@ document.getElementById("builder-save-btn").addEventListener("click", async () =
     const notice = document.getElementById("mode-notice");
     notice.textContent = `Saved "${label.trim()}". It's now in the schedule list.`;
     notice.hidden = false;
-    showScreen("screen-mode");
+    showScreen("screen-calendar");
   } finally {
     saveBtn.disabled = false;
   }
@@ -718,7 +848,9 @@ const cal = {
   year: null,
   month: null,
   data: null, // latest read-month result for year/month
-  date: null, // selected day, "YYYY-MM-DD"
+  date: null, // the day whose bells the panel shows, "YYYY-MM-DD"
+  days: new Set(), // every day picked (Shift/Ctrl-click picks more than one)
+  anchor: null, // where a Shift-click run starts
   selected: new Set(), // ids of bells ticked in the day panel
   busy: false,
 };
@@ -742,6 +874,12 @@ function nowMinutes() {
 function longDate(dateStr) {
   const [y, m, d] = dateStr.split("-").map(Number);
   return `${WEEKDAYS[new Date(y, m - 1, d).getDay()]}, ${MONTHS[m - 1]} ${d}`;
+}
+
+// "Tue, Nov 24"
+function shortDate(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return `${WEEKDAYS[new Date(y, m - 1, d).getDay()].slice(0, 3)}, ${MONTHS[m - 1].slice(0, 3)} ${d}`;
 }
 
 // "past" = already rang, "upcoming" = later today and hasn't rung yet,
@@ -837,8 +975,9 @@ function renderCalendar() {
     if (dow === 0 || dow === 6) cell.classList.add("weekend");
     if (!day.inMonth) cell.classList.add("out");
     if (day.date === today) cell.classList.add("today");
-    if (day.date === cal.date) cell.classList.add("selected");
-    cell.setAttribute("aria-pressed", String(day.date === cal.date));
+    const picked = day.inMonth && cal.days.has(day.date);
+    if (picked) cell.classList.add("selected");
+    cell.setAttribute("aria-pressed", String(picked));
     cell.disabled = !day.inMonth || cal.busy;
     const n = day.events.length;
     cell.setAttribute("aria-label", `${longDate(day.date)}, ${n === 0 ? "no bells" : plural(n, "bell")}`);
@@ -858,13 +997,32 @@ function renderCalendar() {
     if (day.inMonth) renderStrip(strip, day.events, range);
 
     cell.append(top, strip);
-    cell.addEventListener("click", () => selectDay(day.date));
+    cell.addEventListener("click", (e) => selectDay(day.date, e));
     grid.appendChild(cell);
   }
 }
 
-function selectDay(date) {
-  cal.date = date;
+// A plain click picks one day. Shift-click picks the school days (Monday
+// to Friday) from the last click to this one, plus the two days clicked;
+// Ctrl-click (Cmd-click on Mac) adds or removes any one day, weekends too.
+function selectDay(date, e = {}) {
+  if (e.shiftKey && cal.anchor) {
+    const [from, to] = [cal.anchor, date].sort();
+    const weekday = (d) => ![0, 6].includes(new Date(d.year, d.month - 1, d.day).getDay());
+    cal.days = new Set(
+      monthDays()
+        .filter((d) => d.date === from || d.date === to || (d.date > from && d.date < to && weekday(d)))
+        .map((d) => d.date)
+    );
+  } else if (e.metaKey || e.ctrlKey) {
+    if (cal.days.has(date)) cal.days.delete(date);
+    else cal.days.add(date);
+    cal.anchor = date;
+  } else {
+    cal.days = new Set([date]);
+    cal.anchor = date;
+  }
+  cal.date = cal.days.has(date) ? date : [...cal.days].pop() || null;
   cal.selected.clear();
   document.getElementById("delete-result").hidden = true;
   document.getElementById("delete-meter").hidden = true;
@@ -874,9 +1032,12 @@ function selectDay(date) {
 }
 
 function renderDayPanel() {
-  const panel = document.getElementById("day-panel");
   const day = currentDay();
-  panel.hidden = !day;
+  const many = cal.days.size > 1;
+  document.getElementById("day-empty").hidden = many || !!day;
+  document.getElementById("day-one").hidden = many || !day;
+  document.getElementById("day-many").hidden = !many;
+  if (many) return renderManyDays();
   if (!day) return;
 
   const n = day.events.length;
@@ -944,6 +1105,38 @@ function renderDayPanel() {
   renderDayActions();
 }
 
+// Several days picked: list them, then apply one schedule to all of them.
+function renderManyDays() {
+  const days = monthDays().filter((d) => cal.days.has(d.date));
+  const bells = days.reduce((n, d) => n + d.events.length, 0);
+  document.getElementById("many-title").textContent = `${plural(days.length, "day")} selected`;
+  document.getElementById("many-count").textContent =
+    bells === 0 ? "No bells on them yet" : `${plural(bells, "bell")} on them already`;
+  const list = document.getElementById("many-list");
+  list.innerHTML = "";
+  for (const d of days) {
+    const row = document.createElement("div");
+    row.className = "bell-row locked";
+    const date = document.createElement("span");
+    date.className = "bell-title";
+    date.textContent = longDate(d.date);
+    const count = document.createElement("span");
+    count.className = "bell-details";
+    count.textContent = d.events.length === 0 ? "No bells" : plural(d.events.length, "bell");
+    row.append(date, count);
+    list.appendChild(row);
+  }
+  document.getElementById("many-apply").disabled = cal.busy;
+}
+
+document.getElementById("many-apply").addEventListener("click", () => openSingle([...cal.days]));
+document.getElementById("day-apply").addEventListener("click", () => cal.date && openSingle([cal.date]));
+document.getElementById("many-clear").addEventListener("click", () => {
+  cal.days = cal.date ? new Set([cal.date]) : new Set();
+  renderCalendar();
+  renderDayPanel();
+});
+
 function renderDayStrip() {
   const day = currentDay();
   const wrap = document.getElementById("day-strip");
@@ -972,6 +1165,7 @@ function renderDayActions() {
   const day = currentDay();
   const deletable = day ? day.events.filter(canDelete) : [];
   const k = cal.selected.size;
+  document.getElementById("day-apply").disabled = cal.busy;
   document.getElementById("day-select-all").disabled = cal.busy || deletable.length === 0;
   document.getElementById("day-select-none").disabled = cal.busy || k === 0;
   const del = document.getElementById("day-delete");
@@ -1164,9 +1358,13 @@ async function loadMonth(year, month, { selectDate } = {}) {
   const prefix = `${year}-${pad2(month)}`;
   if (selectDate) {
     cal.date = selectDate;
+    cal.days = new Set([selectDate]);
+    cal.anchor = selectDate;
     cal.selected.clear();
   } else if (!cal.date || !cal.date.startsWith(prefix)) {
     cal.date = todayStr().startsWith(prefix) ? todayStr() : null;
+    cal.days = new Set(cal.date ? [cal.date] : []);
+    cal.anchor = cal.date;
     cal.selected.clear();
   } else {
     // Same month reloaded: keep ticks only on bells that are still there.
@@ -1191,14 +1389,6 @@ document.getElementById("cal-today").addEventListener("click", () => {
   loadMonth(now.getFullYear(), now.getMonth() + 1, { selectDate: todayStr() });
 });
 
-// Always reads fresh on the way in: the create flows may have just added bells.
-document.getElementById("mode-calendar").addEventListener("click", () => {
-  document.getElementById("mode-notice").hidden = true;
-  showScreen("screen-calendar");
-  window.api.fitCalendar();
-  const now = new Date();
-  loadMonth(cal.year || now.getFullYear(), cal.month || now.getMonth() + 1);
-});
 
 // --- review screen ---------------------------------------------------------
 
@@ -1268,6 +1458,8 @@ function appendProgressLine(p, multiDate) {
 }
 
 document.getElementById("review-confirm-btn").addEventListener("click", async () => {
+  creating = true;
+  refreshAfterRun = true;
   showScreen("screen-progress");
   const log = document.getElementById("progress-log");
   const summary = document.getElementById("progress-summary");
@@ -1292,8 +1484,16 @@ document.getElementById("review-confirm-btn").addEventListener("click", async ()
     if (p.type === "event-fail") meter.classList.add("fail");
   });
 
-  const result = await window.api.createEvents(pendingAssignments);
-  unsubscribe();
+  let result;
+  try {
+    result = await window.api.createEvents(pendingAssignments);
+  } catch (err) {
+    result = { ok: false, error: err.message };
+  } finally {
+    unsubscribe();
+    creating = false;
+    sheetClose.hidden = false;
+  }
 
   document.getElementById("progress-heading").textContent = result.ok ? "Done" : "Stopped";
 
@@ -1314,12 +1514,12 @@ document.getElementById("review-confirm-btn").addEventListener("click", async ()
     summary.className = "progress-summary fail";
     summary.textContent =
       `Stopped at ${result.haltedOn}. Created ${result.succeeded} of ${result.totalEvents} events. ` +
-      `Open Calendar to see what's there.`;
+      `Close this to see what's on the calendar.`;
   } else if (result.missing && result.missing.length > 0) {
     summary.className = "progress-summary fail";
     summary.textContent =
       `Created ${result.succeeded} events, but ${plural(result.missing.length, "bell")} didn't show up ` +
-      `on the calendar afterward: ${result.missing.join(", ")}. Open Calendar to check.`;
+      `on the calendar afterward: ${result.missing.join(", ")}. Check the calendar.`;
   } else {
     summary.className = "progress-summary fail";
     summary.textContent = result.error || "The run stopped without an error message.";
@@ -1335,7 +1535,7 @@ document.getElementById("progress-done-btn").addEventListener("click", () => {
   document.getElementById("range-start").value = "";
   document.getElementById("range-end").value = "";
   document.getElementById("single-date").value = "";
-  showScreen("screen-mode");
+  showScreen("screen-calendar");
 });
 
 // --- wire up + boot ---------------------------------------------------------
@@ -1348,14 +1548,28 @@ connectBtn.addEventListener("click", onConnectClick);
 // feedback — surface it wherever the connect screen's error box is
 // visible, since that's the one place always present regardless of which
 // screen is showing.
+function showUnexpected(message) {
+  if (appView.hidden) showConnectError(`Unexpected error: ${message}`);
+  else setCalError(`Unexpected error: ${message}`);
+}
 window.addEventListener("unhandledrejection", (e) => {
   console.error(e.reason);
-  showConnectError(`Unexpected error: ${e.reason && e.reason.message ? e.reason.message : e.reason}`);
+  showUnexpected(e.reason && e.reason.message ? e.reason.message : e.reason);
 });
 window.addEventListener("error", (e) => {
   console.error(e.error);
-  showConnectError(`Unexpected error: ${e.message}`);
+  showUnexpected(e.message);
 });
 
-renderSteps("screen-connect");
-loadSchools();
+// Opens the last school's login straight away, once the splash is done, so
+// most days it's splash, log in, calendar.
+async function boot() {
+  await loadSchools();
+  const last = await window.api.getLastSchool();
+  await window.splashDone;
+  if (last && schools.some((s) => s.id === last) && !selectedSchoolId) {
+    schoolSelect.value = last;
+    onSchoolChange();
+  }
+}
+boot();

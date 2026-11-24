@@ -11,11 +11,27 @@
 // briefly and fades. The app underneath loads meanwhile, so the splash adds
 // no wait of its own. It's purely visual: if anything here fails, the splash
 // is removed and the app carries on.
+//
+// window.splashDone resolves once the app can be seen and used, so nothing
+// pops up over the splash (the calendar login window waits for it).
 
 (function () {
+  let resolveDone;
+  window.splashDone = new Promise((r) => (resolveDone = r));
+
   const splash = document.getElementById("splash");
-  const main = document.querySelector("main");
-  if (!splash) return;
+  // Reloading the window (Change school) doesn't replay the splash.
+  let replay = true;
+  try {
+    replay = sessionStorage.getItem("bellforge-splash-shown") !== "1";
+    sessionStorage.setItem("bellforge-splash-shown", "1");
+  } catch {}
+  if (!splash || !replay) {
+    if (splash) splash.remove();
+    resolveDone();
+    return;
+  }
+  const rest = [...document.body.children].filter((el) => el !== splash && el.tagName !== "SCRIPT");
 
   const TOTAL = 3500;
   const FADE_AT = 3100;
@@ -23,14 +39,15 @@
   let finished = false;
 
   // Keep keyboard focus out of the app until it can be seen.
-  if (main) main.inert = true;
+  rest.forEach((el) => (el.inert = true));
 
   function finish(fadeMs = TOTAL - FADE_AT) {
     if (finished) return;
     finished = true;
     window.removeEventListener("keydown", skip, true);
     splash.removeEventListener("pointerdown", skip);
-    if (main) main.inert = false;
+    rest.forEach((el) => (el.inert = false));
+    resolveDone();
     const fade = splash.animate([{ opacity: 1 }, { opacity: 0 }], { duration: fadeMs, easing: "ease-out", fill: "forwards" });
     fade.finished.catch(() => {}).then(() => splash.remove());
   }
