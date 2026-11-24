@@ -39,7 +39,8 @@
         "filter": [
           "**/*",
           "!PROJECT_SPEC.md",
-          "!README.md"
+          "!README.md",
+          "!test/**"
         ]
       },
       {

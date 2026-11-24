@@ -1,6 +1,6 @@
 # BellForge roadmap: 2.1 and beyond
 
-Status: Phases 1 to 3 done, Phase 7 leaning to Microsoft sign-in. Written 2026-11-24 against commit `a042d10`.
+Status: Phases 1 to 4 done, Phase 5 (editing) postponed, Phase 7 leaning to Microsoft sign-in. Written 2026-11-24 against commit `a042d10`.
 
 This covers seven requests, put in the order they depend on each other:
 

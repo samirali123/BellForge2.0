@@ -13,7 +13,6 @@ contextBridge.exposeInMainWorld("api", {
   checkReachable: (schoolId) => ipcRenderer.invoke("check-reachable", { schoolId }),
   connect: (schoolId) => ipcRenderer.invoke("connect", { schoolId }),
   getScheduleMenu: () => ipcRenderer.invoke("get-schedule-menu"),
-  createEvents: (assignments) => ipcRenderer.invoke("create-events", { assignments }),
   validateBlock: (block) => ipcRenderer.invoke("validate-block", { block }),
   previewSchedule: (label, blocks) => ipcRenderer.invoke("preview-schedule", { label, blocks }),
   saveSchedule: (label, blocks) => ipcRenderer.invoke("save-schedule", { label, blocks }),
@@ -21,21 +20,22 @@ contextBridge.exposeInMainWorld("api", {
   importScheduleCsv: () => ipcRenderer.invoke("import-schedule-csv"),
   saveCsvTemplate: () => ipcRenderer.invoke("save-csv-template"),
   readMonth: (year, month) => ipcRenderer.invoke("read-month", { year, month }),
-  deleteBells: (bells) => ipcRenderer.invoke("delete-events", { bells }),
-  onDeleteProgress: (callback) => {
-    const listener = (event, progress) => callback(progress);
-    ipcRenderer.on("delete-progress", listener);
-    return () => ipcRenderer.removeListener("delete-progress", listener);
+  // Background jobs: creating and deleting bells.
+  queueCreate: (assignments) => ipcRenderer.invoke("queue-create", { assignments }),
+  queueDelete: (bells) => ipcRenderer.invoke("queue-delete", { bells }),
+  getJobs: () => ipcRenderer.invoke("get-jobs"),
+  cancelJob: (id) => ipcRenderer.invoke("cancel-job", { id }),
+  resumeJobs: () => ipcRenderer.invoke("resume-jobs"),
+  clearFinishedJobs: () => ipcRenderer.invoke("clear-finished-jobs"),
+  onJobs: (callback) => {
+    const listener = (event, snapshot) => callback(snapshot);
+    ipcRenderer.on("jobs-update", listener);
+    return () => ipcRenderer.removeListener("jobs-update", listener);
   },
 
   onStatus: (callback) => {
     const listener = (event, text) => callback(text);
     ipcRenderer.on("status-update", listener);
     return () => ipcRenderer.removeListener("status-update", listener);
-  },
-  onCreateProgress: (callback) => {
-    const listener = (event, progress) => callback(progress);
-    ipcRenderer.on("create-progress", listener);
-    return () => ipcRenderer.removeListener("create-progress", listener);
   },
 });

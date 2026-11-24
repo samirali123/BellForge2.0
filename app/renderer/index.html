@@ -99,6 +99,24 @@
       </div>
 
       <div class="topbar-actions">
+        <!-- Background jobs: hidden until there's one. -->
+        <div class="menu jobs-menu">
+          <button id="jobs-btn" class="secondary jobs-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="jobs-tray" hidden>
+            <svg class="jobs-ring" viewBox="0 0 20 20" aria-hidden="true">
+              <circle class="ring-track" cx="10" cy="10" r="8" />
+              <circle id="jobs-ring-fill" class="ring-fill" cx="10" cy="10" r="8" />
+            </svg>
+            <span id="jobs-label">Jobs</span>
+          </button>
+          <div id="jobs-tray" class="menu-list jobs-tray" role="dialog" aria-label="Jobs" hidden>
+            <div class="tray-head">
+              <span class="section-label">Jobs</span>
+              <button id="jobs-clear" class="link-btn">Clear finished</button>
+            </div>
+            <p class="hint">They run one at a time, in order. Keep BellForge open until they finish.</p>
+            <div id="jobs-list" class="jobs-list"></div>
+          </div>
+        </div>
         <div class="menu">
           <button id="add-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="add-menu">Add bells &#9662;</button>
           <div id="add-menu" class="menu-list" role="menu" hidden>
@@ -130,6 +148,10 @@
     </header>
 
     <div class="app-notices">
+      <div id="jobs-paused" class="warning paused" hidden>
+        <span id="jobs-paused-text"></span>
+        <button id="jobs-resume" class="secondary">Resume</button>
+      </div>
       <p id="cal-status" class="hint" hidden></p>
       <div id="cal-error" class="error" hidden></div>
       <div id="mode-notice" class="notice" hidden></div>
@@ -158,6 +180,8 @@
             <button id="day-apply" class="secondary">Apply schedule…</button>
           </div>
 
+          <div id="day-jobs" class="day-jobs" hidden></div>
+
           <div id="day-strip" class="day-strip" aria-hidden="true"></div>
 
           <div id="day-list" class="bell-list"></div>
@@ -181,17 +205,6 @@
               <button id="confirm-cancel" class="secondary">Cancel</button>
             </div>
           </div>
-
-          <div id="delete-meter" class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden>
-            <div class="meter-head">
-              <span id="delete-count" class="meter-count"></span>
-              <span id="delete-pct" class="meter-pct">0%</span>
-            </div>
-            <div class="meter-track"><div id="delete-fill" class="meter-fill"></div></div>
-            <p class="hint">Each bell takes about 15 seconds. Keep BellForge open until it finishes.</p>
-          </div>
-
-          <div id="delete-result" class="progress-summary" hidden></div>
         </div>
 
         <!-- Several days: apply one schedule to all of them. -->
@@ -346,12 +359,18 @@
         <p class="section-label">You are about to create</p>
         <div id="review-list" class="review-list"></div>
         <p id="review-total" class="review-total"></p>
-        <button id="review-confirm-btn">Create Events</button>
+        <div id="review-warning" class="warning" hidden></div>
+        <p class="hint">
+          The bells are sent in the background, about 15 seconds each. You can
+          keep using BellForge meanwhile; a notice says when they're done.
+        </p>
+        <div id="review-error" class="error" hidden></div>
+        <button id="review-confirm-btn">Create bells</button>
       </section>
 
-      <!-- Creating -->
+      <!-- One job from the queue, in detail -->
       <section id="screen-progress" class="screen" hidden>
-        <p class="section-label" id="progress-heading">Creating events…</p>
+        <p class="section-label" id="progress-heading"></p>
         <div class="meter" role="progressbar" id="progress-meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <div class="meter-head">
             <span id="progress-count" class="meter-count"></span>
@@ -361,10 +380,17 @@
         </div>
         <div id="progress-log" class="log progress-log"></div>
         <div id="progress-summary" class="progress-summary" hidden></div>
-        <button id="progress-done-btn" hidden>Done</button>
+        <div class="job-actions">
+          <button id="job-show-day" class="secondary">Show day</button>
+          <button id="job-cancel" class="secondary">Cancel job</button>
+          <button id="progress-done-btn">Close</button>
+        </div>
       </section>
     </div>
   </div>
+
+  <!-- Notices, top right: a job queued, done, or stopped. -->
+  <div id="toasts" class="toasts" aria-live="polite"></div>
 
   <script src="splash.js"></script>
   <script src="accent.js"></script>

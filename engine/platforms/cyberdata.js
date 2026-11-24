@@ -28,6 +28,11 @@
 //   a repeating bell; BellForge never sends that.
 // - The device answers one request at a time, about 15 s per create or
 //   delete, so bells are sent one after another.
+//
+// Every request waits its turn for the device (see `turns` below). Reads of
+// a month for the screen ("read" lane) go ahead of a background job's
+// requests ("job" lane), so browsing waits for at most the one request in
+// flight, never a whole job.
 
 const https = require("https");
 
@@ -100,10 +105,36 @@ function parseMonth(html) {
   });
 }
 
+// One request at a time, with reads for the screen served first.
+function createTurns() {
+  const waiting = { read: [], job: [] };
+  let busy = false;
+  function next() {
+    if (busy) return;
+    const go = waiting.read.shift() || waiting.job.shift();
+    if (!go) return;
+    busy = true;
+    go();
+  }
+  return async function inTurn(lane, fn) {
+    await new Promise((resolve) => {
+      waiting[lane === "read" ? "read" : "job"].push(resolve);
+      next();
+    });
+    try {
+      return await fn();
+    } finally {
+      busy = false;
+      next();
+    }
+  };
+}
+
 function createEngine({ colors, pickerColors, config }) {
   const base = new URL(config.calendarUrl);
   const calendarPath = base.pathname.replace(/\/$/, "");
   const agent = new https.Agent({ rejectUnauthorized: false, keepAlive: true }); // self-signed device cert
+  const inTurn = createTurns();
   let cookie = null;
 
   function setSession(sessionCookie) {
@@ -111,7 +142,11 @@ function createEngine({ colors, pickerColors, config }) {
   }
   const hasSession = () => !!cookie;
 
-  function request(method, path, form) {
+  function request(method, path, form, lane = "job") {
+    return inTurn(lane, () => send(method, path, form));
+  }
+
+  function send(method, path, form) {
     if (!cookie) return Promise.reject(new NotLoggedInError());
     const body = form ? new URLSearchParams(form).toString() : undefined;
     const headers = { "User-Agent": "BellForge", Accept: "text/html,*/*", Cookie: cookie };
@@ -132,17 +167,30 @@ function createEngine({ colors, pickerColors, config }) {
           });
         }
       );
-      req.on("timeout", () => req.destroy(new Error("The calendar didn't answer in time.")));
+      req.on("timeout", () => req.destroy(Object.assign(new Error("The calendar didn't answer in time."), { timedOut: true })));
+      // UNREACHABLE tells the job queue to pause rather than carry on with
+      // the next job: every job after this one would fail the same way.
       req.on("error", (err) =>
-        reject(new Error(`Couldn't reach the calendar at ${base.hostname} (${err.message}). Check the school network or VPN.`))
+        reject(
+          Object.assign(
+            new Error(
+              err.timedOut
+                ? `The calendar at ${base.hostname} didn't answer in time. Check the school network or VPN.`
+                : `Couldn't reach the calendar at ${base.hostname} (${err.message}). Check the school network or VPN.`
+            ),
+            { code: "UNREACHABLE" }
+          )
+        )
       );
       if (body !== undefined) req.write(body);
       req.end();
     });
   }
 
-  async function readMonth(year, month) {
-    const res = await request("GET", `${calendarPath}?y=${year}&m=${month}`);
+  // lane "read" (the default) is for the screen; a job re-reading to verify
+  // its own work passes "job" so it keeps its place behind screen reads.
+  async function readMonth(year, month, { lane = "read" } = {}) {
+    const res = await request("GET", `${calendarPath}?y=${year}&m=${month}`, undefined, lane);
     if (res.status !== 200) throw new Error(`The calendar answered ${res.status} when opening ${year}-${pad2(month)}.`);
     const days = parseMonth(res.text);
     if (/id="login_form"/.test(res.text)) throw new NotLoggedInError();
@@ -216,7 +264,7 @@ function createEngine({ colors, pickerColors, config }) {
       try {
         status = (await request("DELETE", `${calendarPath}/${y}/${m}/${d}/${e.id}`)).status;
       } catch (err) {
-        if (err.code === "NOT_LOGGED_IN") throw Object.assign(err, { deleted });
+        if (err.code === "NOT_LOGGED_IN" || err.code === "UNREACHABLE") throw Object.assign(err, { deleted });
         status = err.message;
       }
       if (status !== 200) {
@@ -235,7 +283,7 @@ function createEngine({ colors, pickerColors, config }) {
     try {
       for (const key of new Set(events.map((e) => e.date.slice(0, 7)))) {
         const [y, m] = key.split("-").map(Number);
-        months[key] = await readMonth(y, m);
+        months[key] = await readMonth(y, m, { lane: "job" });
       }
     } catch (err) {
       // Tell the caller what was already deleted, so nothing is sent twice.

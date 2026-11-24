@@ -1467,6 +1467,300 @@ button.icon-btn:hover:not(:disabled) {
   font-variant-numeric: tabular-nums;
 }
 
+/* --- jobs: top-bar button, tray, notices -------------------------------- */
+
+button.jobs-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.jobs-ring {
+  width: 18px;
+  height: 18px;
+  transform: rotate(-90deg);
+}
+
+.jobs-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.ring-track {
+  stroke: var(--border);
+}
+
+.ring-fill {
+  stroke: var(--link);
+  stroke-linecap: round;
+  stroke-dasharray: 0 100;
+  transition: stroke-dasharray 0.3s ease;
+}
+
+.jobs-btn:not(.working) .ring-fill {
+  stroke: var(--ok);
+  stroke-dasharray: 100 100 !important;
+}
+
+.jobs-btn.attention {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.jobs-btn.attention .ring-fill {
+  stroke: var(--danger);
+}
+
+.jobs-tray {
+  width: 360px;
+  max-height: 70vh;
+  overflow-y: auto;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.tray-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.jobs-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.jobs-list .empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-base);
+}
+
+.job-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: var(--text-base);
+}
+
+.job-row.running {
+  border-color: var(--link);
+}
+
+.job-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+button.job-title {
+  color: var(--text);
+  font-weight: 600;
+  text-align: left;
+}
+
+.job-status {
+  flex: none;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.job-status.running {
+  color: var(--link);
+}
+
+.job-status.done {
+  color: var(--ok);
+}
+
+.job-status.failed {
+  color: var(--danger);
+}
+
+.job-text {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.job-row.failed .job-text {
+  color: var(--danger);
+}
+
+button.job-cancel {
+  align-self: flex-start;
+  font-size: var(--text-sm);
+}
+
+.job-actions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+
+.warning.paused {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.warning.paused span {
+  flex: 1;
+}
+
+/* A day with a job waiting for it. */
+.cal-job {
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-radius: var(--radius-pill);
+  background: var(--link);
+}
+
+.day-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+button.day-job {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+  background: color-mix(in srgb, var(--link) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--link) 35%, transparent);
+  border-radius: var(--radius);
+  box-shadow: none;
+  text-align: left;
+}
+
+button.day-job:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--link) 16%, transparent);
+  box-shadow: none;
+}
+
+.day-job-state {
+  flex: none;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.bell-row.pending .bell-title,
+.bell-row.pending .bell-time,
+.bell-row.pending .bell-details {
+  text-decoration: line-through;
+}
+
+.bell-tag.job {
+  color: var(--link);
+  background: color-mix(in srgb, var(--link) 12%, transparent);
+}
+
+.review-item.busy .review-note {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.toasts {
+  position: fixed;
+  top: 76px;
+  right: var(--space-4);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(360px, calc(100vw - 2 * var(--space-4)));
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--link);
+  border-radius: var(--radius);
+  box-shadow: var(--glass-shadow);
+  pointer-events: auto;
+  animation: toast-in 0.2s ease-out;
+}
+
+.toast.success {
+  border-left-color: var(--ok);
+}
+
+.toast.fail {
+  border-left-color: var(--danger);
+}
+
+.toast-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.toast-title {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 700;
+}
+
+.toast.fail .toast-title {
+  color: var(--danger);
+}
+
+.toast-body {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.toast-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+}
+
+.toast-actions .link-btn {
+  font-size: var(--text-sm);
+}
+
+button.toast-close {
+  width: 24px;
+  height: 24px;
+  font-size: var(--text-lg);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
+
 /* --- splash ------------------------------------------------------------------ */
 /* Covers the window at launch; splash.js animates it and removes it. */
 
