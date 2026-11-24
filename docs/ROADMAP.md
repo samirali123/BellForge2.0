@@ -1,6 +1,6 @@
 # BellForge roadmap: 2.1 and beyond
 
-Status: proposal, not started. Written 2026-11-24 against commit `a042d10`.
+Status: Phases 1 to 3 approved, Phase 7 leaning to Microsoft sign-in. Written 2026-11-24 against commit `a042d10`.
 
 This covers seven requests, put in the order they depend on each other:
 
@@ -22,7 +22,17 @@ after it.
 
 ## Phase 1: Splash screen
 
-Options A to D are in the splash preview artifact. Whichever is picked:
+**Decided (2026-11-24): a mix of A and C.** The sparkle is hidden at the
+start.
+
+| Time | What happens |
+| --- | --- |
+| 0.0 s | The bell drops in, centered |
+| 0.6 s | It rings: two swings from the crown, with the clapper swinging further |
+| 1.4 s | A spark flies off the rim and pushes the wordmark out to the right, while the bell slides left so the logo ends up centered |
+| 2.3 s | The sparkle fades in beside the bell |
+| 2.8 s | Hold on the full logo |
+| 3.1 s | Fade into the login screen |
 
 - Plays as a full-window overlay in `index.html`, not a separate window, so
   there's no second window to place or close. It runs while
@@ -42,14 +52,17 @@ in both themes, before and after):
 
 **Color**
 
-1. **The app's accent is maroon (`#7a1f2b`), but the BellForge brand is
-   ember orange (`#F0601A`).** The orange logo sits on top of maroon
-   buttons. Maroon is O'Dea's color, and BellForge is multi-school. Proposal:
-   the app's chrome uses the brand orange, and a school's own colors only
-   appear on its bells. `#F0601A` with white text is only about 3:1, below
-   the 4.5:1 needed for small text, so buttons use a deeper ember
-   (around `#C2470D`) and the bright orange stays for the logo, focus rings
-   and highlights. Needs a decision before Phase 3.
+1. **Decided: the accent color comes from the school.** Maroon is used
+   because BellForge is inside O'Dea's calendar, and another school gets
+   its own color. Today `#7a1f2b` is written directly into `styles.css`
+   about a dozen times (the accent, both gradients, every glow). Instead:
+   - Each school sets one color in `school.json` (`"accent": "#7a1f2b"`).
+   - On connect, the app works out the rest from it: hover shade, glows,
+     a lighter version for links in dark mode, and whether text on it
+     should be white or dark, so a light school color (yellow, say) still
+     passes contrast.
+   - Before a school is chosen (splash, school picker), the BellForge
+     brand orange is used.
 2. Literal colors outside the tokens: `#d4a72c` (network "checking" dot),
    `#fff` on buttons and the today marker, maroon `rgba(122, 31, 43, …)`
    baked into the glow shadows, and the dark-mode bell ring. All become
@@ -228,6 +241,9 @@ because each copy of BellForge only sees its own computer.
 | B. BellForge's own email and password accounts | weeks | medium | We'd be storing passwords and handling resets and leavers. |
 | C. **Sign in with the school's Google or Microsoft account** | 2 to 3 weeks | high | Recommended. Staff already have these accounts, IT already removes leavers, and BellForge never sees a password. |
 
+**Leaning towards C with Microsoft accounts.** How that works is below,
+under "Signing in with Microsoft".
+
 Recommended: **C**, with a small hosted backend (Supabase or similar:
 sign-in, a Postgres table, and row rules so a signed-in user can add log
 entries but never change or delete them). Each school only sees its own
@@ -245,13 +261,47 @@ log.
 - New ongoing costs: hosting (free tier likely covers one or two schools),
   a domain, and someone to own the backend.
 
-**Open questions before this is designed in detail**
+**Signing in with Microsoft**
 
-- Which account system do the schools use: Google Workspace or Microsoft
-  365?
+1. **One-time setup:** BellForge is registered as an app in Microsoft Entra
+   ID (formerly Azure AD), the system behind every Microsoft 365 school
+   account. It's a "public client" registration: no secret ships inside
+   the app. It only asks for the basics (`openid`, `profile`, `email`).
+2. **Each school's IT approves it once.** Most school tenants don't let
+   staff approve new apps themselves, so an admin clicks "Grant admin
+   consent" for BellForge. After that, nobody else is asked.
+3. **Signing in:** BellForge opens the normal Microsoft sign-in page in the
+   computer's browser (with the school's own MFA, if it has any). Microsoft
+   sends BellForge back a token saying who the person is: name, email, a
+   permanent user id, and which school tenant they belong to. This uses
+   Microsoft's own library for desktop apps (`@azure/msal-node`).
+4. **Staying signed in:** the sign-in is kept in the Mac Keychain or the
+   Windows credential store and refreshes itself, so people sign in about
+   once every few months, not every launch.
+5. **Who's allowed:** each `school.json` lists its Microsoft tenant, so an
+   O'Dea account can only work on O'Dea's calendar. Optionally, IT creates a
+   group such as "BellForge editors", and only its members can change
+   bells. Adding and removing editors then happens in tools IT already
+   uses, and leavers lose access when their account is closed.
+6. **The server checks it too:** every changelog entry is sent with the
+   Microsoft token, and the server verifies it with Microsoft before saving.
+   Nobody can write an entry under someone else's name, and entries can't
+   be edited or deleted afterwards.
+
+Two sign-ins stay separate. The CyberData login is still the shared
+calendar login, as now. The Microsoft sign-in only says who is using
+BellForge.
+
+**Changelog (decided): every change to bells.** Each create, delete and
+edit, with who, when, which school, the date, the bells before and after,
+and whether it fully succeeded. It's visible from anywhere in the app.
+
+**Open questions**
+
 - Should signing in be **required** to make changes, or optional?
+- Should changes be limited to an IT-managed group, or open to anyone at
+  the school?
 - How long is history kept?
-- Does each school's IT need to approve a new app sign-in?
-- Is "changelog" the history of calendar changes (assumed here), BellForge's
-  own release notes, or both? Release notes are cheap: they ship inside the
-  app and need no server.
+- Where should the server live? Supabase is the quickest to build on. A
+  small Azure Function keeps everything with Microsoft, which a school's
+  IT may prefer.
