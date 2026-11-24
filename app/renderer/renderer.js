@@ -36,6 +36,8 @@ const SHEET_TITLES = {
   "screen-builder-preview": "New schedule type",
   "screen-my-schedules": "My schedules",
   "screen-review": "Review",
+  "screen-account": "Create account",
+  "screen-activity": "Activity log",
 };
 
 function showScreen(id) {
@@ -57,6 +59,7 @@ function showScreen(id) {
     s.hidden = s.id !== id;
   });
   sheetTitle.textContent = SHEET_TITLES[id] || "";
+  sheet.querySelector(".sheet-panel").classList.toggle("wide", id === "screen-activity");
   renderSteps(id);
   sheet.querySelector(".sheet-panel").scrollTop = 0;
   if (!wasOpen) sheetClose.focus();
@@ -225,6 +228,11 @@ async function onConnectClick() {
   resetConnectLog();
 
   if (!selectedSchoolId || connectBtn.textContent === "Waiting for login…") return;
+  if (!people.current) {
+    showConnectError("Choose who's using BellForge first, or create an account.");
+    userSelect.focus();
+    return;
+  }
 
   connectBtn.disabled = true;
   connectBtn.textContent = "Waiting for login…";
@@ -1715,8 +1723,10 @@ function goToDate(date) {
 
 // --- notices, top right --------------------------------------------------------------
 // A job added: a short note that it's queued. A job finished: what happened,
-// with a link to the day. Success notices go after a few seconds; a stopped
-// job's notice stays until it's closed.
+// with a link to the day. Notices close by themselves (a stopped job's after
+// longer) so they never sit over the day panel for good; nothing is lost when
+// they do, since the jobs button stays red until the stopped job is looked at,
+// and the job's details stay in the jobs list and the activity log.
 
 function toast({ kind = "info", title, body, actions = [], timeout = 0 }) {
   const box = document.getElementById("toasts");
@@ -1788,12 +1798,312 @@ function finishedToast(j) {
       ...(j.dates.length ? [{ label: "Show day", run: () => goToDate(j.dates[0]) }] : []),
       { label: "Details", run: () => openJob(j.id) },
     ],
-    timeout: j.status === "done" ? 6000 : 0,
+    timeout: j.status === "done" ? 6000 : 20000,
   });
 }
 
 window.api.onJobs(applyJobs);
 window.api.getJobs().then(applyJobs);
+
+// --- who's using BellForge ------------------------------------------------------
+// Accounts are kept on this computer (engine/accounts.js) and the last person
+// is remembered. Changing bells needs someone chosen; the main process
+// refuses otherwise, so every change in the activity log has a name.
+
+const people = { accounts: [], current: null };
+const userSelect = document.getElementById("user-select");
+
+async function loadAccounts() {
+  const { accounts, current } = await window.api.getAccounts();
+  people.accounts = accounts;
+  people.current = current;
+  renderPeople();
+}
+
+function renderPeople() {
+  // Login card
+  userSelect.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.disabled = true;
+  placeholder.textContent = people.accounts.length ? "Choose your name…" : "No accounts yet: create one";
+  userSelect.appendChild(placeholder);
+  for (const a of people.accounts) {
+    const opt = document.createElement("option");
+    opt.value = a.id;
+    opt.textContent = a.name;
+    userSelect.appendChild(opt);
+  }
+  userSelect.value = people.current ? people.current.id : "";
+
+  // Top bar
+  const btn = document.getElementById("account-btn");
+  document.getElementById("account-name").textContent = people.current ? people.current.name : "Choose who you are";
+  btn.classList.toggle("attention", !people.current);
+  const items = document.getElementById("account-items");
+  items.innerHTML = "";
+  for (const a of people.accounts) {
+    const item = document.createElement("button");
+    item.className = "menu-item";
+    item.setAttribute("role", "menuitemradio");
+    item.setAttribute("aria-checked", String(!!people.current && people.current.id === a.id));
+    const title = document.createElement("span");
+    title.className = "mode-title";
+    title.textContent = a.name;
+    item.appendChild(title);
+    item.addEventListener("click", () => {
+      closeAccountMenu();
+      chooseUser(a.id);
+    });
+    items.appendChild(item);
+  }
+  document.getElementById("no-user-notice").hidden = !!people.current;
+  renderActivityPeople();
+}
+
+async function chooseUser(id) {
+  const result = await window.api.setUser(id);
+  if (!result.ok) {
+    showUnexpected(result.error);
+    return;
+  }
+  const first = !people.current;
+  people.current = result.current;
+  renderPeople();
+  // Chosen on the login card for the first time: carry on to the calendar
+  // login as BellForge would have with a remembered person.
+  if (first && appView.hidden && !selectedSchoolId) {
+    const last = await window.api.getLastSchool();
+    if (last && schools.some((s) => s.id === last)) {
+      schoolSelect.value = last;
+      onSchoolChange();
+    }
+  }
+}
+
+userSelect.addEventListener("change", () => userSelect.value && chooseUser(userSelect.value));
+
+// --- account menu (top bar) -----------------------------------------------------
+
+const accountBtn = document.getElementById("account-btn");
+const accountList = document.getElementById("account-list");
+function closeAccountMenu() {
+  accountList.hidden = true;
+  accountBtn.setAttribute("aria-expanded", "false");
+}
+accountBtn.addEventListener("click", () => {
+  closeAddMenu();
+  closeTray();
+  const open = accountList.hidden;
+  accountList.hidden = !open;
+  accountBtn.setAttribute("aria-expanded", String(open));
+  if (open) (accountList.querySelector(".menu-item[aria-checked='true']") || accountList.querySelector(".menu-item")).focus();
+});
+document.addEventListener("click", (e) => {
+  if (!accountList.hidden && !e.target.closest(".account-menu")) closeAccountMenu();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !accountList.hidden) {
+    closeAccountMenu();
+    accountBtn.focus();
+  }
+});
+
+// --- create account ------------------------------------------------------------------
+
+document.querySelectorAll("[data-open-account]").forEach((el) =>
+  el.addEventListener("click", () => {
+    closeAccountMenu();
+    document.getElementById("account-name-input").value = "";
+    document.getElementById("account-note-input").value = "";
+    document.getElementById("account-error").hidden = true;
+    showScreen("screen-account");
+    document.getElementById("account-name-input").focus();
+  })
+);
+
+async function submitAccount() {
+  const btn = document.getElementById("account-create-btn");
+  const box = document.getElementById("account-error");
+  btn.disabled = true;
+  try {
+    const result = await window.api.createAccount(
+      document.getElementById("account-name-input").value,
+      document.getElementById("account-note-input").value
+    );
+    if (!result.ok) {
+      box.textContent = result.errors.join(" ");
+      box.hidden = false;
+      return;
+    }
+    box.hidden = true;
+    const first = !people.current;
+    await loadAccounts();
+    closeSheet();
+    toast({ kind: "success", title: `Welcome, ${result.current.name}`, body: "Your changes will be recorded under this name.", timeout: 4000 });
+    if (first) {
+      // Same as choosing a name for the first time: carry on to the login.
+      people.current = null;
+      await chooseUser(result.current.id);
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+document.getElementById("account-create-btn").addEventListener("click", submitAccount);
+for (const id of ["account-name-input", "account-note-input"]) {
+  document.getElementById(id).addEventListener("keydown", (e) => e.key === "Enter" && submitAccount());
+}
+
+// --- activity log ----------------------------------------------------------------------
+
+const KIND_TEXT = { create: "Created bells", delete: "Deleted bells", "schedule-save": "Saved schedule type", "schedule-delete": "Deleted schedule type" };
+
+function activityFilters() {
+  return {
+    from: document.getElementById("activity-from").value || undefined,
+    to: document.getElementById("activity-to").value || undefined,
+    userId: document.getElementById("activity-user").value || undefined,
+  };
+}
+
+function renderActivityPeople() {
+  const sel = document.getElementById("activity-user");
+  const keep = sel.value;
+  sel.innerHTML = "";
+  const all = document.createElement("option");
+  all.value = "";
+  all.textContent = "Everyone";
+  sel.appendChild(all);
+  for (const a of people.accounts) {
+    const opt = document.createElement("option");
+    opt.value = a.id;
+    opt.textContent = a.name;
+    sel.appendChild(opt);
+  }
+  sel.value = people.accounts.some((a) => a.id === keep) ? keep : "";
+}
+
+async function openActivity() {
+  closeAccountMenu();
+  // Opens on the last 30 days.
+  const from = document.getElementById("activity-from");
+  if (!from.value) {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    from.value = formatDate(d);
+  }
+  document.getElementById("activity-notice").hidden = true;
+  showScreen("screen-activity");
+  await renderActivity();
+}
+
+async function renderActivity() {
+  const list = document.getElementById("activity-list");
+  const errorBox = document.getElementById("activity-error");
+  const result = await window.api.readActivity(activityFilters());
+  list.innerHTML = "";
+  errorBox.hidden = result.ok;
+  if (!result.ok) {
+    errorBox.textContent = result.error;
+    return;
+  }
+  const entries = result.entries;
+  document.getElementById("activity-count").textContent = entries.length ? plural(entries.length, "change") : "";
+  document.getElementById("activity-export").disabled = entries.length === 0;
+  if (entries.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = "No changes for these filters.";
+    list.appendChild(empty);
+    return;
+  }
+
+  // Grouped by the day the change was made.
+  let lastDay = null;
+  for (const e of entries) {
+    const at = new Date(e.at);
+    const day = formatDate(at);
+    if (day !== lastDay) {
+      const head = document.createElement("p");
+      head.className = "activity-day";
+      head.textContent = day === todayStr() ? `Today, ${shortDate(day).slice(5)}` : longDate(day);
+      list.appendChild(head);
+      lastDay = day;
+    }
+
+    const item = document.createElement("details");
+    item.className = `activity-item ${e.ok ? "ok" : "stopped"}`;
+    const summary = document.createElement("summary");
+    const time = document.createElement("span");
+    time.className = "activity-time";
+    time.textContent = `${pad2(at.getHours())}:${pad2(at.getMinutes())}`;
+    const main = document.createElement("span");
+    main.className = "activity-main";
+    const label = document.createElement("span");
+    label.className = "activity-label";
+    label.textContent = e.label;
+    const who = document.createElement("span");
+    who.className = "activity-who";
+    who.textContent = [e.user ? e.user.name : "No name", e.school && e.school.name].filter(Boolean).join(" · ");
+    main.append(label, who);
+    const state = document.createElement("span");
+    state.className = `activity-state ${e.ok ? "ok" : "stopped"}`;
+    state.textContent = e.ok ? "Done" : "Stopped";
+    summary.append(time, main, state);
+    item.appendChild(summary);
+
+    // Opened: what exactly changed, and where it was done from.
+    const body = document.createElement("div");
+    body.className = "activity-body";
+    const p = document.createElement("p");
+    p.textContent = e.summary;
+    body.appendChild(p);
+    const lines = activityDetailLines(e);
+    if (lines.length) {
+      const ul = document.createElement("ul");
+      for (const text of lines) {
+        const li = document.createElement("li");
+        li.textContent = text;
+        ul.appendChild(li);
+      }
+      body.appendChild(ul);
+    }
+    const meta = document.createElement("p");
+    meta.className = "activity-meta";
+    meta.textContent = `${KIND_TEXT[e.kind] || e.kind} · computer ${e.computer || "unknown"}${e.osUser ? `, signed in as ${e.osUser}` : ""} · BellForge ${e.appVersion || ""}`;
+    body.appendChild(meta);
+    item.appendChild(body);
+    list.appendChild(item);
+  }
+}
+
+function activityDetailLines(e) {
+  const d = e.details || {};
+  if (e.kind === "create" && d.assignments) return d.assignments.map((a) => `${shortDate(a.date)}: ${a.label} (${plural(a.count, "bell")})`);
+  if (e.kind === "delete" && d.bells) return d.bells.map((b) => `${shortDate(b.date)}: ${b.start} ${b.title}`);
+  if (e.kind === "schedule-save" && d.events) return d.events.map((ev) => `${ev.start} ${ev.title} (${ev.color})`);
+  return [];
+}
+
+document.getElementById("open-activity").addEventListener("click", openActivity);
+for (const id of ["activity-from", "activity-to", "activity-user"]) {
+  document.getElementById(id).addEventListener("change", renderActivity);
+}
+document.getElementById("activity-export").addEventListener("click", async () => {
+  const result = await window.api.exportActivity(activityFilters());
+  if (result.canceled) return;
+  const notice = document.getElementById("activity-notice");
+  const errorBox = document.getElementById("activity-error");
+  notice.hidden = !result.ok;
+  errorBox.hidden = result.ok;
+  if (result.ok) notice.textContent = `Saved ${plural(result.count, "change")} to ${result.filePath}.`;
+  else errorBox.textContent = result.error;
+});
+
+// Problems the main process reports outside any request (e.g. the log
+// couldn't be written).
+window.api.onWarning((text) => toast({ kind: "fail", title: "Activity log", body: text }));
 
 // --- wire up + boot ---------------------------------------------------------
 
@@ -1820,10 +2130,16 @@ window.addEventListener("error", (e) => {
 
 // Opens the last school's login straight away, once the splash is done, so
 // most days it's splash, log in, calendar.
+// The calendar login only starts by itself once a person is chosen: with
+// nobody remembered, the first step is picking or creating an account.
 async function boot() {
-  await loadSchools();
+  await Promise.all([loadSchools(), loadAccounts()]);
   const last = await window.api.getLastSchool();
   await window.splashDone;
+  if (!people.current) {
+    userSelect.focus();
+    return;
+  }
   if (last && schools.some((s) => s.id === last) && !selectedSchoolId) {
     schoolSelect.value = last;
     onSchoolChange();

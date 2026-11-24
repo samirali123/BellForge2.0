@@ -16,6 +16,11 @@ setup, and the full project layout. This file is a map of this folder.
 - **`job-queue.js`** — runs creates and deletes one at a time in the
   background, in order; pauses when the device can't be reached or the
   login is abandoned. Tested in `test/job-queue.test.js` (`npm test`).
+- **`accounts.js`** — the people who use BellForge on this computer (a
+  name and an optional note; no password), in `accounts.json`.
+- **`activity-log.js`** — the append-only record of every change
+  (`activity.jsonl`, one JSON entry per line), with filtering and CSV
+  export. Tested in `test/activity.test.js`.
 - **`create-events.js`** — the creation loop: creates every bell for a list
   of dates, halts on the first failure, then re-reads the calendar to
   confirm each created bell is there.

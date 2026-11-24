@@ -20,6 +20,17 @@ contextBridge.exposeInMainWorld("api", {
   importScheduleCsv: () => ipcRenderer.invoke("import-schedule-csv"),
   saveCsvTemplate: () => ipcRenderer.invoke("save-csv-template"),
   readMonth: (year, month) => ipcRenderer.invoke("read-month", { year, month }),
+  // Who's using BellForge, and the activity log.
+  getAccounts: () => ipcRenderer.invoke("get-accounts"),
+  createAccount: (name, note) => ipcRenderer.invoke("create-account", { name, note }),
+  setUser: (id) => ipcRenderer.invoke("set-user", { id }),
+  readActivity: (filters) => ipcRenderer.invoke("read-activity", filters),
+  exportActivity: (filters) => ipcRenderer.invoke("export-activity", filters),
+  onWarning: (callback) => {
+    const listener = (event, text) => callback(text);
+    ipcRenderer.on("app-warning", listener);
+    return () => ipcRenderer.removeListener("app-warning", listener);
+  },
   // Background jobs: creating and deleting bells.
   queueCreate: (assignments) => ipcRenderer.invoke("queue-create", { assignments }),
   queueDelete: (bells) => ipcRenderer.invoke("queue-delete", { bells }),

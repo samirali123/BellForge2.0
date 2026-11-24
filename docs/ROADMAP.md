@@ -1,6 +1,6 @@
 # BellForge roadmap: 2.1 and beyond
 
-Status: Phases 1 to 4 done, Phase 5 (editing) postponed, Phase 7 leaning to Microsoft sign-in. Written 2026-11-24 against commit `a042d10`.
+Status: Phases 1 to 4 and 6 done, Phase 5 (editing) postponed, Phase 7 (server, sign-in) later. Written 2026-11-24 against commit `a042d10`.
 
 This covers seven requests, put in the order they depend on each other:
 
@@ -217,6 +217,15 @@ doesn't ring.
 - Repeating bells stay read-only, as now.
 
 ## Phase 6: Activity log on this computer
+
+**Done (2026-11-24), with simple accounts.** Instead of the computer's user
+name alone, people pick or create a BellForge account (a name and an
+optional note, no password), kept on the computer; the computer user and
+computer name are recorded alongside. Changes need a person chosen. The
+Activity log is under the person's name in the top bar, with date and
+person filters and CSV export. Date of birth was considered as a way to
+tell people apart and left out: it isn't secret, so it proves nothing, and
+it would be personal data to look after. The plan as first written follows.
 
 Before accounts exist, every job writes a line to a local, append-only log
 in the user folder (`activity.jsonl`, next to `settings.json`): when, which

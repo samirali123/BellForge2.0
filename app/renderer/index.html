@@ -55,6 +55,17 @@
     <section id="screen-connect" class="screen">
       <div class="group">
         <label class="field">
+          <span>Who's using BellForge?</span>
+          <select id="user-select"></select>
+        </label>
+        <p class="hint">
+          Changes are recorded under this name.
+          <button type="button" class="link-btn inline-link" data-open-account>Create account</button>
+        </p>
+      </div>
+
+      <div class="group">
+        <label class="field">
           <span>School</span>
           <select id="school-select">
             <option value="" disabled selected>Loading schools…</option>
@@ -139,6 +150,23 @@
             </button>
           </div>
         </div>
+        <div class="menu account-menu">
+          <button id="account-btn" class="secondary account-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="account-list">
+            <span id="account-name">Choose who you are</span> &#9662;
+          </button>
+          <div id="account-list" class="menu-list" role="menu" hidden>
+            <p class="menu-label">Using BellForge as</p>
+            <div id="account-items"></div>
+            <button class="menu-item" role="menuitem" data-open-account>
+              <span class="mode-title">Create account…</span>
+            </button>
+            <hr class="menu-sep" />
+            <button id="open-activity" class="menu-item" role="menuitem">
+              <span class="mode-title">Activity log</span>
+              <span class="mode-desc">Every change made on this computer</span>
+            </button>
+          </div>
+        </div>
         <div class="segmented theme-switch" role="radiogroup" aria-label="Appearance">
           <button type="button" role="radio" data-theme="system">System</button>
           <button type="button" role="radio" data-theme="light">Light</button>
@@ -148,6 +176,9 @@
     </header>
 
     <div class="app-notices">
+      <div id="no-user-notice" class="notice" hidden>
+        Choose who's using BellForge (top right) before changing bells, so changes are recorded under your name.
+      </div>
       <div id="jobs-paused" class="warning paused" hidden>
         <span id="jobs-paused-text"></span>
         <button id="jobs-resume" class="secondary">Resume</button>
@@ -366,6 +397,54 @@
         </p>
         <div id="review-error" class="error" hidden></div>
         <button id="review-confirm-btn">Create bells</button>
+      </section>
+
+      <!-- Create an account -->
+      <section id="screen-account" class="screen" hidden>
+        <p class="hint">
+          An account is just a name, so the activity log shows who made each change.
+          There's no password. Anyone on this computer can pick any name.
+        </p>
+        <label class="field">
+          <span>Name</span>
+          <input id="account-name-input" type="text" maxlength="60" placeholder="e.g. Samir Ali" />
+        </label>
+        <label class="field">
+          <span>Note (optional)</span>
+          <input id="account-note-input" type="text" maxlength="40" placeholder="Tells two people with one name apart, e.g. Front office" />
+        </label>
+        <div id="account-error" class="error" hidden></div>
+        <button id="account-create-btn">Create account</button>
+      </section>
+
+      <!-- Activity log -->
+      <section id="screen-activity" class="screen" hidden>
+        <p class="hint">
+          Every change BellForge made on this computer: bells created and deleted (including jobs
+          that stopped partway) and schedule types saved and deleted. Nothing in BellForge can edit
+          or remove an entry.
+        </p>
+        <div class="activity-filters">
+          <label class="field">
+            <span>From</span>
+            <input id="activity-from" type="date" />
+          </label>
+          <label class="field">
+            <span>To</span>
+            <input id="activity-to" type="date" />
+          </label>
+          <label class="field">
+            <span>Person</span>
+            <select id="activity-user"></select>
+          </label>
+        </div>
+        <div class="activity-bar">
+          <span id="activity-count" class="hint"></span>
+          <button id="activity-export" class="secondary">Save as CSV…</button>
+        </div>
+        <div id="activity-notice" class="notice" hidden></div>
+        <div id="activity-error" class="error" hidden></div>
+        <div id="activity-list" class="activity-list"></div>
       </section>
 
       <!-- One job from the queue, in detail -->
