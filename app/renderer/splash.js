@@ -77,6 +77,7 @@
     const anim = (el, frames) => el.animate(frames, opts);
 
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      splash.classList.add("still");
       setTimeout(() => finish(400), 600);
       return;
     }
@@ -141,6 +142,7 @@
     try {
       play();
     } catch (err) {
+      splash.classList.add("still");
       console.error(err);
       finish(150);
     }

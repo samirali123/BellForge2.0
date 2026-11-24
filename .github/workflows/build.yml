@@ -21,10 +21,19 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
+      # The release notes come from docs/releases/<tag>.md when there is one.
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: docs/releases
       - run: |
+          notes="docs/releases/$GITHUB_REF_NAME.md"
+          if [ ! -f "$notes" ]; then
+            notes="$RUNNER_TEMP/notes.md"
+            echo "Installers for $GITHUB_REF_NAME." > "$notes"
+          fi
           gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
             gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft \
-              --title "$GITHUB_REF_NAME" --notes "Installers for $GITHUB_REF_NAME."
+              --title "$GITHUB_REF_NAME" --notes-file "$notes"
 
   build-mac:
     needs: create-release

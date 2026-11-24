@@ -56,6 +56,11 @@ function createWindow() {
     minHeight: 560,
     resizable: true,
     title: "BellForge",
+    // Shown once the page has drawn its first frame (the splash), not
+    // before, so the window never opens blank or on a half-drawn page. The
+    // background matches the splash for the moment before that.
+    show: false,
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#2b2522" : "#fffdf9",
     ...(!app.isPackaged && fs.existsSync(DEV_ICON) ? { icon: DEV_ICON } : {}),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -63,6 +68,7 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+  mainWindow.once("ready-to-show", () => mainWindow.show());
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
 
   // Jobs only live as long as BellForge does (the login is kept in memory

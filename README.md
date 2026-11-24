@@ -201,9 +201,11 @@ A school on a different bell platform needs its own
 ## Releases
 
 1. Bump `"version"` in `app/package.json`.
-2. `git tag v2.0.1 && git push origin v2.0.1`
-3. GitHub Actions builds the Mac and Windows installers and creates a
-   **draft** release. Review it, then publish. The repo is private, so send
+2. Write the release notes in `docs/releases/v2.0.1.md` (same layout as the
+   earlier ones there: a one-line summary, then New, Changed, Installing).
+3. `git tag v2.0.1 && git push origin v2.0.1`
+4. GitHub Actions builds the Mac and Windows installers and creates a
+   **draft** release with those notes. Review it, then publish. The repo is private, so send
    clients the installers directly.
 
 Installers are unsigned. On Windows, SmartScreen asks once ("More info",

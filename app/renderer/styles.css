@@ -1827,6 +1827,20 @@ button.toast-close {
   width: auto;
 }
 
+/* The splash starts on its first frame (bell, wordmark and sparkle all
+   hidden), not the finished logo: splash.js only starts the animation once
+   the wordmark image has loaded, and until then this is what shows. The
+   animation then takes over every one of these. With Reduce Motion,
+   splash.js adds .still to show the finished logo instead. */
+.splash:not(.still) .splash-bell,
+.splash:not(.still) .splash-star {
+  opacity: 0;
+}
+
+.splash:not(.still) .splash-word {
+  clip-path: inset(-20% 0 -20% 100%);
+}
+
 .splash-spark {
   position: absolute;
   z-index: 3;

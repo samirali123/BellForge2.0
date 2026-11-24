@@ -1,7 +1,7 @@
 {
   "name": "bellforge-app",
   "productName": "BellForge",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "Desktop launcher for the CyberData bell schedule automation",
   "main": "main.js",
