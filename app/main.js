@@ -23,6 +23,8 @@ function resourcePath(...parts) {
 const { listSchools, loadSchool } = require(resourcePath("engine", "school-loader"));
 const { createEvents } = require(resourcePath("engine", "create-events"));
 const { JobQueue } = require(resourcePath("engine", "job-queue"));
+const { listAccounts, createAccount, displayName } = require(resourcePath("engine", "accounts"));
+const { appendActivity, readActivity, toCsv } = require(resourcePath("engine", "activity-log"));
 const { validateBlock, validateSchedule, expandBlocks } = require(resourcePath("engine", "schedule-expand"));
 const { normalizeBlock, saveCustomSchedule, deleteCustomSchedule } = require(
   resourcePath("engine", "custom-schedules")
@@ -117,6 +119,87 @@ ipcMain.handle("get-theme", () => nativeTheme.themeSource);
 
 // The school last logged in to, so its login opens straight away next time.
 ipcMain.handle("get-last-school", () => readSettings().lastSchool || null);
+
+// --- who's using BellForge, and the activity log ------------------------------
+// Accounts (engine/accounts.js) and the activity log (engine/activity-log.js)
+// live in this computer's user-data folder. Changing bells or schedule types
+// needs a person chosen, so every change in the log has a name; looking at
+// the calendar doesn't. The chosen person is remembered in settings.json.
+
+const dataDir = () => app.getPath("userData");
+
+function currentUser() {
+  const id = readSettings().user;
+  const account = id && listAccounts(dataDir()).find((a) => a.id === id);
+  return account ? { id: account.id, name: displayName(account) } : null;
+}
+
+const NO_USER = "Choose who's using BellForge first (top right), so the change is recorded under your name.";
+
+ipcMain.handle("get-accounts", () => ({
+  accounts: listAccounts(dataDir())
+    .map((a) => ({ id: a.id, name: displayName(a) }))
+    .sort((a, b) => a.name.localeCompare(b.name)),
+  current: currentUser(),
+}));
+
+ipcMain.handle("create-account", (event, { name, note }) => {
+  try {
+    const result = createAccount(dataDir(), { name, note });
+    if (!result.ok) return result;
+    writeSettings({ ...readSettings(), user: result.account.id });
+    return { ok: true, current: currentUser() };
+  } catch (err) {
+    return { ok: false, errors: [`Couldn't save the account: ${err.message}`] };
+  }
+});
+
+ipcMain.handle("set-user", (event, { id }) => {
+  if (!listAccounts(dataDir()).some((a) => a.id === id)) return { ok: false, error: "That account doesn't exist." };
+  writeSettings({ ...readSettings(), user: id });
+  return { ok: true, current: currentUser() };
+});
+
+// Writes one entry. A log that can't be written mustn't undo or block the
+// change itself, but the person is told, since the record is the point.
+function logActivity(entry) {
+  try {
+    appendActivity(dataDir(), { appVersion: app.getVersion(), ...entry });
+  } catch (err) {
+    console.error("activity log:", err);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("app-warning", `This change wasn't written to the activity log (${err.message}).`);
+    }
+  }
+}
+
+const validDate = (s) => typeof s !== "string" || s === "" || /^\d{4}-\d{2}-\d{2}$/.test(s);
+
+ipcMain.handle("read-activity", (event, filters = {}) => {
+  const { from, to, userId } = filters;
+  if (!validDate(from) || !validDate(to)) return { ok: false, error: "Those dates aren't valid." };
+  return { ok: true, entries: readActivity(dataDir(), { from, to, userId }) };
+});
+
+ipcMain.handle("export-activity", async (event, filters = {}) => {
+  const { from, to, userId } = filters;
+  if (!validDate(from) || !validDate(to)) return { ok: false, error: "Those dates aren't valid." };
+  const entries = readActivity(dataDir(), { from, to, userId });
+  if (entries.length === 0) return { ok: false, error: "There's nothing in the log for those filters." };
+  const stamp = new Date().toISOString().slice(0, 10);
+  const pick = await dialog.showSaveDialog(mainWindow, {
+    title: "Save activity log",
+    defaultPath: path.join(app.getPath("documents"), `bellforge-activity-${stamp}.csv`),
+    filters: [{ name: "CSV", extensions: ["csv"] }],
+  });
+  if (pick.canceled || !pick.filePath) return { ok: false, canceled: true };
+  try {
+    fs.writeFileSync(pick.filePath, toCsv(entries));
+    return { ok: true, filePath: pick.filePath, count: entries.length };
+  } catch (err) {
+    return { ok: false, error: `Couldn't save the file: ${err.message}` };
+  }
+});
 ipcMain.handle("forget-last-school", () => {
   try {
     const { lastSchool, ...rest } = readSettings();
@@ -436,6 +519,8 @@ ipcMain.handle("save-csv-template", async () => {
 
 ipcMain.handle("save-schedule", (event, { label, blocks }) => {
   if (!currentSession) return { ok: false, errors: ["Not connected to a school yet."] };
+  const user = currentUser();
+  if (!user) return { ok: false, errors: [NO_USER] };
   try {
     const result = saveCustomSchedule(
       currentSession.schoolId,
@@ -444,6 +529,17 @@ ipcMain.handle("save-schedule", (event, { label, blocks }) => {
     );
     if (!result.ok) return result;
     reloadSchedules();
+    const saved = currentSession.schedules[result.key];
+    logActivity({
+      kind: "schedule-save",
+      school: { id: currentSession.schoolId, name: currentSession.schoolName },
+      user,
+      label: `Saved schedule type "${saved.label}"`,
+      dates: [],
+      ok: true,
+      summary: `Added "${saved.label}" (${plural(saved.events.length, "bell")}) to the schedule list.`,
+      details: { key: result.key, events: saved.events.map(({ start, title, color }) => ({ start, title, color })) },
+    });
     return { ok: true, key: result.key, menu: scheduleMenu() };
   } catch (err) {
     return { ok: false, errors: [`Couldn't save: ${err.message}`] };
@@ -456,6 +552,8 @@ ipcMain.handle("save-schedule", (event, { label, blocks }) => {
 // events already created in CyberData.
 ipcMain.handle("delete-schedule", (event, { key }) => {
   if (!currentSession) return { ok: false, error: "Not connected to a school yet." };
+  const user = currentUser();
+  if (!user) return { ok: false, error: NO_USER };
   if (!currentSession.customKeys.includes(key)) {
     return { ok: false, error: "Only schedules you added can be deleted." };
   }
@@ -463,6 +561,16 @@ ipcMain.handle("delete-schedule", (event, { key }) => {
     const result = deleteCustomSchedule(currentSession.schoolId, key);
     if (!result.ok) return result;
     reloadSchedules();
+    logActivity({
+      kind: "schedule-delete",
+      school: { id: currentSession.schoolId, name: currentSession.schoolName },
+      user,
+      label: `Deleted schedule type "${result.label}"`,
+      dates: [],
+      ok: true,
+      summary: `Removed "${result.label}" from BellForge's schedule list. Bells already on the calendar weren't touched.`,
+      details: { key },
+    });
     return { ok: true, label: result.label, menu: scheduleMenu() };
   } catch (err) {
     return { ok: false, error: `Couldn't delete: ${err.message}` };
@@ -520,6 +628,25 @@ const queue = new JobQueue();
 queue.on("update", () => {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("jobs-update", queue.snapshot());
 });
+// Every job that ran is logged, whether it finished or stopped partway (a
+// stopped job may still have changed some bells). Cancelled jobs changed
+// nothing and aren't.
+queue.on("finished", (job) => {
+  logActivity({
+    kind: job.kind,
+    school: job.meta.school,
+    user: job.meta.user,
+    label: job.label,
+    dates: job.dates,
+    ok: job.result.ok,
+    summary: job.result.summary,
+    details:
+      job.kind === "create"
+        ? { assignments: job.meta.assignments, created: job.progress.done }
+        : { bells: job.meta.bells, deleted: job.result.ok ? job.meta.bells.length : null },
+  });
+});
+
 queue.on("finished", (job) => {
   // The in-app notice covers it when BellForge is in front.
   if (!Notification.isSupported() || !mainWindow || mainWindow.isDestroyed() || mainWindow.isFocused()) return;
@@ -559,6 +686,8 @@ ipcMain.handle("clear-finished-jobs", () => {
 
 ipcMain.handle("queue-create", (event, { assignments }) => {
   if (!currentSession) return { ok: false, error: "Not connected to a school yet." };
+  const user = currentUser();
+  if (!user) return { ok: false, error: NO_USER };
   if (!Array.isArray(assignments) || assignments.length === 0) return { ok: false, error: "Nothing to create." };
   for (const a of assignments) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(a.date)) || !currentSession.schedules[a.scheduleKey]) {
@@ -581,7 +710,11 @@ ipcMain.handle("queue-create", (event, { assignments }) => {
     label,
     dates,
     total,
-    meta: { assignments: assignments.map(({ date, scheduleKey }) => ({ date, scheduleKey, label: schedules[scheduleKey].label, count: schedules[scheduleKey].events.length })) },
+    meta: {
+      user,
+      school: { id: currentSession.schoolId, name: currentSession.schoolName },
+      assignments: assignments.map(({ date, scheduleKey }) => ({ date, scheduleKey, label: schedules[scheduleKey].label, count: schedules[scheduleKey].events.length })),
+    },
     run: async (job, report) => {
       const r = await createEvents({
         schedules,
@@ -635,6 +768,8 @@ function bellsBeingDeleted() {
 
 ipcMain.handle("queue-delete", (event, { bells }) => {
   if (!currentSession) return { ok: false, error: "Not connected to a school yet." };
+  const user = currentUser();
+  if (!user) return { ok: false, error: NO_USER };
   if (!Array.isArray(bells) || bells.length === 0) return { ok: false, error: "No bells selected." };
 
   // Checked now, when it's added, against what the screen was showing.
@@ -661,7 +796,11 @@ ipcMain.handle("queue-delete", (event, { bells }) => {
     label: `Delete ${plural(n, "bell")} ${where}`,
     dates,
     total: n,
-    meta: { bells: toDelete.map(({ date, id, start, title }) => ({ date, id, start, title })) },
+    meta: {
+      user,
+      school: { id: currentSession.schoolId, name: currentSession.schoolName },
+      bells: toDelete.map(({ date, id, start, title }) => ({ date, id, start, title })),
+    },
     run: async (job, report) => {
       const onProgress = (p) => {
         if (p.type === "start") {

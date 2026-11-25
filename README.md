@@ -34,6 +34,36 @@ times, colors and device address. See "Adding a new school" below.
 Every bell is created at the school's chosen audio file, zone, and color,
 then BellForge re-reads the calendar to confirm each one is really there.
 
+## Who's using BellForge, and the activity log
+
+When BellForge opens, the login card asks **Who's using BellForge?** Pick
+your name, or **Create account** (a name, plus an optional note such as a
+department to tell two people with the same name apart). There's no
+password: an account says who made a change, among people who trust each
+other; anyone on the computer can pick any name. The last person is
+remembered, and the name in the top bar switches person.
+
+Creating or deleting bells, and saving or deleting schedule types, needs a
+person chosen. Looking at the calendar doesn't.
+
+Every change is written to the **Activity log** (top bar, your name ->
+Activity log): bells created and deleted, including jobs that stopped
+partway, and schedule types saved and deleted. Each entry has who, when,
+which school, exactly which bells, how it ended, and the computer and
+computer user it was done from. Filter by dates and person, and **Save as
+CSV** to keep records elsewhere. Nothing in BellForge edits or removes an
+entry.
+
+Accounts and the log are kept on this computer only:
+
+- macOS: `~/Library/Application Support/BellForge/` (`accounts.json`, `activity.jsonl`)
+- Windows: `%APPDATA%\BellForge\` (same files)
+
+Each Windows or Mac user on a shared computer has their own. A shared,
+school-wide changelog on a server is planned for later (see
+`docs/ROADMAP.md`, Phase 7); the entries are already in a form that can be
+sent there as they are.
+
 ## The job queue
 
 The device handles one request at a time, about 15 seconds per bell, so
