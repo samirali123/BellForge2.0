@@ -964,10 +964,10 @@ button.cal-day.out {
   min-width: 0;
 }
 
+/* A long day ("Wednesday, September 30") wraps rather than being cut off
+   beside the Apply button. */
 .day-head .day-title {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-wrap: balance;
 }
 
 .day-head button {
